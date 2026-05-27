@@ -1,0 +1,32 @@
+# Web Framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# Database - MongoDB
+motor==3.3.2                  # Async MongoDB driver
+pymongo==4.6.0                # MongoDB Python driver
+
+# Validation & Settings
+pydantic==2.7.1
+pydantic-settings==2.2.1
+email-validator==2.1.0        # Email validation for Pydantic
+
+# Security
+python-jose[cryptography]==3.3.0   # JWT token
+passlib[bcrypt]==1.7.4             # Password hashing
+python-multipart==0.0.9            # Form data
+
+# Utils
+python-dotenv==1.0.1
+httpx==0.27.0                 # HTTP client
+uuid6==2024.1.12              # UUID v7
+
+# Data & Risk Analysis
+kaggle
+pandas
+tqdm
+
+# Testing
+pytest==8.2.0
+pytest-asyncio==0.23.6
+httpx==0.27.0
