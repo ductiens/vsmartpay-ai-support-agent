@@ -8,10 +8,24 @@ class RAGService:
         self.api_key = settings.OPENAI_API_KEY
         self.model = settings.OPENAI_MODEL
 
+    async def get_context_for_query(self, query: str, top_k: int = 4) -> str:
+        """
+        Retrieve relevant document chunks and format them as a combined context string.
+        """
+        chunks = await self.retriever.retrieve(query, top_k=top_k)
+        context_parts = []
+        for c in chunks:
+            source = c.metadata.get("source", "unknown")
+            category = c.metadata.get("category", "General")
+            context_parts.append(
+                f"### Nguồn: {source} ({category})\n"
+                f"Nội dung: {c.text}"
+            )
+        return "\n\n".join(context_parts)
+
     async def answer_query(self, query: str) -> Dict[str, Any]:
         """
-        Retrieve chunks and generate answer using OpenAI API.
-        (Phase 1: Basic retriever call with LLM response mock fallback)
+        Retrieve chunks and generate an answer using OpenAI API.
         """
         chunks = await self.retriever.retrieve(query, top_k=settings.TOP_K)
         context = "\n".join([c.text for c in chunks])
