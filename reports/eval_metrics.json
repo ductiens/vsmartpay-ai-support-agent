@@ -1,0 +1,6 @@
+{
+  "intent_accuracy": 0.0,
+  "rag_faithfulness": 0.0,
+  "rag_answer_relevance": 0.0,
+  "escalation_f1_score": 0.0
+}

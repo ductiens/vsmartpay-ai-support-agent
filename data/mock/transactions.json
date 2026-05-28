@@ -1,0 +1,20 @@
+[
+  {
+    "transaction_id": "tx_001",
+    "user_id": "usr_001",
+    "amount": 100000,
+    "type": "TRANSFER",
+    "status": "SUCCESS",
+    "timestamp": "2026-05-28T08:30:00Z",
+    "currency": "VND"
+  },
+  {
+    "transaction_id": "tx_002",
+    "user_id": "usr_002",
+    "amount": 50000,
+    "type": "DEPOSIT",
+    "status": "SUCCESS",
+    "timestamp": "2026-05-28T08:45:00Z",
+    "currency": "VND"
+  }
+]

@@ -1,0 +1,2 @@
+{"query": "Ví của tôi bị mất tiền không rõ lý do, hãy chuyển cho nhân viên ngay!", "expected_escalation": true, "reason": "Bị mất tiền"}
+{"query": "Tôi muốn biết làm thế nào nạp tiền từ Techcombank?", "expected_escalation": false, "reason": null}

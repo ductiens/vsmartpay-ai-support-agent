@@ -1,0 +1,16 @@
+[
+  {
+    "user_id": "usr_001",
+    "name": "Nguyen Van A",
+    "phone": "0987654321",
+    "email": "vana@example.com",
+    "kyc_status": "VERIFIED"
+  },
+  {
+    "user_id": "usr_002",
+    "name": "Tran Thi B",
+    "phone": "0901234567",
+    "email": "thib@example.com",
+    "kyc_status": "UNVERIFIED"
+  }
+]

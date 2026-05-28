@@ -8,6 +8,9 @@ from app.common.exceptions import AppException
 from app.common.response import error_response
 from fastapi.exceptions import RequestValidationError
 
+from app.modules.chat.router import router as chat_router
+from app.modules.tools.router import router as tools_router
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +37,20 @@ app = FastAPI(
     debug=settings.DEBUG,
     lifespan=lifespan
 )
+
+# Set up CORS middleware
+if settings.BACKEND_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+# Include Routers
+app.include_router(chat_router)
+app.include_router(tools_router)
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)
@@ -67,16 +84,6 @@ async def generic_exception_handler(request, exc: Exception):
         message="An unexpected error occurred",
         error_code="INTERNAL_SERVER_ERROR",
         status_code=500
-    )
-
-# Set up CORS middleware
-if settings.BACKEND_CORS_ORIGINS:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
     )
 
 # Health endpoint

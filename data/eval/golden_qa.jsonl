@@ -1,0 +1,2 @@
+{"query": "Phí rút tiền ví VSmartPay là bao nhiêu?", "expected_intent": "FAQ_FEES", "expected_answer": "Rút tiền về ngân hàng liên kết chính chủ được miễn phí 3 giao dịch đầu tiên mỗi tháng. Từ giao dịch thứ 4 trở đi phí là 1.100 VND/giao dịch."}
+{"query": "Hạn mức giao dịch tối đa một ngày là bao nhiêu?", "expected_intent": "FAQ_LIMITS", "expected_answer": "Đối với tài khoản đã xác thực (đã KYC), hạn mức giao dịch tối đa là 50.000.000 VND/ngày."}
