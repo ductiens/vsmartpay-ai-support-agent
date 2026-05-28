@@ -8,11 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 from app.database import get_db
 from app.main import app
-from app.modules.users.repository import ensure_indexes as ensure_users_indexes
-from app.modules.wallets.repository import ensure_indexes as ensure_wallets_indexes
-from app.modules.ledger.repository import ensure_indexes as ensure_ledger_indexes
 
-TEST_DATABASE_NAME = "mini_wallet_test"
+TEST_DATABASE_NAME = "vsmartpay_test"
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -38,12 +35,8 @@ async def test_db(db_client):
     after each test run to ensure complete test isolation.
     """
     import uuid
-    unique_db_name = f"mw_{uuid.uuid4().hex[:8]}"
+    unique_db_name = f"vp_{uuid.uuid4().hex[:8]}"
     db = db_client[unique_db_name]
-    # Build indexes for testing
-    await ensure_users_indexes(db)
-    await ensure_wallets_indexes(db)
-    await ensure_ledger_indexes(db)
     yield db
     # Cleanup after test function executes
     await db_client.drop_database(unique_db_name)

@@ -4,30 +4,54 @@ from app.modules.intents.taxonomy import IntentTaxonomy
 class IntentClassifier:
     async def classify_intent(self, message: str) -> IntentClassification:
         """
-        Classify user query into an intent. 
-        (Phase 1: Basic keyword-based fallback logic)
+        Classify user query into a precise intent. 
+        (Phase 2: Complete rule-based heuristics for support topics)
         """
         msg_lower = message.lower()
         
-        if any(w in msg_lower for w in ["số dư", "tiền còn lại", "tài khoản", "balance"]):
-            return IntentClassification(intent=IntentTaxonomy.WALLET_BALANCE.value, confidence=0.9)
-        
-        if any(w in msg_lower for w in ["giao dịch", "lịch sử", "chuyển tiền", "nhận tiền", "transaction"]):
-            return IntentClassification(intent=IntentTaxonomy.TRANSACTION_HISTORY.value, confidence=0.9)
+        # 1. Human Support Requests
+        if any(w in msg_lower for w in ["gặp nhân viên", "cskh", "tư vấn viên", "gặp tư vấn", "gặp hỗ trợ"]):
+            return IntentClassification(intent=IntentTaxonomy.HUMAN_SUPPORT_REQUEST.value, confidence=0.9)
             
-        if any(w in msg_lower for w in ["phí", "biểu phí", "fee", "cost"]):
-            return IntentClassification(intent=IntentTaxonomy.SYSTEM_FEES.value, confidence=0.9)
+        # 2. Fees Inquiry
+        if any(w in msg_lower for w in ["phí", "mất phí", "biểu phí", "tốn phí", "thu phí"]):
+            return IntentClassification(intent=IntentTaxonomy.FEE_INQUIRY.value, confidence=0.9)
             
-        if any(w in msg_lower for w in ["hạn mức", "limit"]):
-            return IntentClassification(intent=IntentTaxonomy.FAQ_LIMITS.value, confidence=0.8)
+        # 3. Limits Inquiry
+        if any(w in msg_lower for w in ["hạn mức", "tối đa", "tối thiểu", "limit"]):
+            return IntentClassification(intent=IntentTaxonomy.LIMIT_INQUIRY.value, confidence=0.9)
             
-        if any(w in msg_lower for w in ["điều khoản", "quy định", "terms"]):
-            return IntentClassification(intent=IntentTaxonomy.FAQ_TERMS.value, confidence=0.8)
+        # 4. Transaction Status
+        if any(w in msg_lower for w in ["giao dịch", "mã giao dịch", "trạng thái", "lịch sử"]):
+            return IntentClassification(intent=IntentTaxonomy.TRANSACTION_STATUS.value, confidence=0.95)
             
-        if any(w in msg_lower for w in ["lỗi", "không được", "thất bại", "hỏng", "trouble"]):
-            return IntentClassification(intent=IntentTaxonomy.FAQ_TROUBLESHOOTING.value, confidence=0.8)
+        # 5. Balance Inquiry
+        if any(w in msg_lower for w in ["số dư", "balance", "tài khoản còn bao nhiêu"]):
+            return IntentClassification(intent=IntentTaxonomy.BALANCE_INQUIRY.value, confidence=0.9)
 
-        if any(w in msg_lower for w in ["nhân viên", "người thật", "chuyển tiếp", "human", "agent"]):
-            return IntentClassification(intent=IntentTaxonomy.ESC_HUMAN.value, confidence=0.95)
+        # 6. Fraud or Scam Report
+        if any(w in msg_lower for w in ["lừa đảo", "mất tiền", "scam", "bị gạt"]):
+            return IntentClassification(intent=IntentTaxonomy.FRAUD_OR_SCAM_REPORT.value, confidence=0.95)
+
+        # 7. Account Security
+        if any(w in msg_lower for w in ["bị hack", "otp", "mật khẩu", "đổi mật khẩu", "pin", "khóa tài khoản"]):
+            return IntentClassification(intent=IntentTaxonomy.ACCOUNT_SECURITY.value, confidence=0.9)
+
+        # 8. KYC Support
+        if any(w in msg_lower for w in ["kyc", "xác thực danh tính", "xác minh"]):
+            return IntentClassification(intent=IntentTaxonomy.KYC_SUPPORT.value, confidence=0.9)
+
+        # 9. Bank Linking
+        if any(w in msg_lower for w in ["liên kết ngân hàng", "liên kết thẻ", "hủy liên kết"]):
+            return IntentClassification(intent=IntentTaxonomy.BANK_LINKING.value, confidence=0.9)
+
+        # 10. Failed Transaction
+        if any(w in msg_lower for w in ["lỗi giao dịch", "thất bại", "không chuyển được", "bị treo"]):
+            return IntentClassification(intent=IntentTaxonomy.FAILED_TRANSACTION.value, confidence=0.85)
+
+        # 11. Promotions
+        if any(w in msg_lower for w in ["khuyến mãi", "ưu đãi", "quà", "gift"]):
+            return IntentClassification(intent=IntentTaxonomy.PROMOTION_INQUIRY.value, confidence=0.9)
             
+        # Fallback default
         return IntentClassification(intent=IntentTaxonomy.FAQ_GENERAL.value, confidence=0.5)
