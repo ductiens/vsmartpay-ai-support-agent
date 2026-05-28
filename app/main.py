@@ -10,6 +10,8 @@ from fastapi.exceptions import RequestValidationError
 
 from app.modules.chat.router import router as chat_router
 from app.modules.tools.router import router as tools_router
+from app.modules.documents.router import router as documents_router
+from app.modules.rag.vector_store import VectorStoreService
 
 # Configure logging
 logging.basicConfig(
@@ -25,8 +27,11 @@ async def lifespan(app: FastAPI):
         await db_manager.connect()
         if db_manager.db is not None:
             logger.info("Database connected successfully during startup.")
+            # Ensure Vector Search indexes exist on Atlas
+            vector_store = VectorStoreService()
+            await vector_store.ensure_vector_search_index()
     except Exception as e:
-        logger.error(f"Startup database connection failed: {e}")
+        logger.error(f"Startup database connection or index setup failed: {e}")
     yield
     # Shutdown: Close database connection
     await db_manager.close()
@@ -51,6 +56,7 @@ if settings.BACKEND_CORS_ORIGINS:
 # Include Routers
 app.include_router(chat_router)
 app.include_router(tools_router)
+app.include_router(documents_router, prefix="/api/v1")
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)

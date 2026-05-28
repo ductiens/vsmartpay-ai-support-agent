@@ -119,7 +119,7 @@ class ChatService:
                     ],
                     temperature=0.2
                 )
-                answer = response.choices[0].message.content
+                answer = response.choices[0].message.content or ""
             except Exception as e:
                 # Safe fallback
                 answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Dựa trên tài liệu tra cứu: {retrieved_chunks[0].text[:250]}..."

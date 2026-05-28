@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.modules.rag.retriever import RAGRetriever
 
@@ -8,26 +8,51 @@ class RAGService:
         self.api_key = settings.OPENAI_API_KEY
         self.model = settings.OPENAI_MODEL
 
-    async def get_context_for_query(self, query: str, top_k: int = 4) -> str:
+    async def get_context_for_query(
+        self, 
+        query: str, 
+        top_k: int = 5,
+        agent_scope: Optional[str] = None,
+        kb_type: Optional[str] = None,
+        category: Optional[str] = None
+    ) -> str:
         """
-        Retrieve relevant document chunks and format them as a combined context string.
+        Retrieve relevant document chunks and format them as a combined context string with dynamic filters.
         """
-        chunks = await self.retriever.retrieve(query, top_k=top_k)
+        chunks = await self.retriever.retrieve(
+            query=query, 
+            top_k=top_k,
+            agent_scope=agent_scope,
+            kb_type=kb_type,
+            category=category
+        )
         context_parts = []
         for c in chunks:
             source = c.metadata.get("source", "unknown")
-            category = c.metadata.get("category", "General")
+            cat = c.metadata.get("category", "General")
             context_parts.append(
-                f"### Nguồn: {source} ({category})\n"
+                f"### Nguồn: {source} ({cat})\n"
                 f"Nội dung: {c.text}"
             )
         return "\n\n".join(context_parts)
 
-    async def answer_query(self, query: str) -> Dict[str, Any]:
+    async def answer_query(
+        self, 
+        query: str,
+        agent_scope: Optional[str] = None,
+        kb_type: Optional[str] = None,
+        category: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Retrieve chunks and generate an answer using OpenAI API.
+        Retrieve chunks and generate an answer using OpenAI API with scoping.
         """
-        chunks = await self.retriever.retrieve(query, top_k=settings.TOP_K)
+        chunks = await self.retriever.retrieve(
+            query=query, 
+            top_k=settings.TOP_K,
+            agent_scope=agent_scope,
+            kb_type=kb_type,
+            category=category
+        )
         context = "\n".join([c.text for c in chunks])
         
         sources = [c.metadata.get("source", "unknown") for c in chunks]

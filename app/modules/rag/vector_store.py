@@ -1,109 +1,205 @@
 import os
-import json
-from typing import List, Tuple
-# pyrefly: ignore [missing-import]
+from typing import List, Tuple, Dict, Any, Optional
 import numpy as np
-import faiss
 from app.config import settings
+from app.database import get_db
 from app.modules.rag.schema import DocumentChunk
 
 class VectorStoreService:
     def __init__(self):
-        self.store_path = settings.VECTOR_STORE_PATH # vector_store/faiss_index
-        self.index = None
-        self.metadata = []
-        self.load_index()
+        self.index_name = settings.MONGODB_VECTOR_INDEX_NAME
 
-    def load_index(self):
-        """Load FAISS index and documents metadata."""
-        if self.store_path.endswith("faiss_index"):
-            index_file = os.path.join(self.store_path, "index.faiss")
-            metadata_file = os.path.join(self.store_path, "index_metadata.json")
-        else:
-            index_file = f"{self.store_path}.faiss"
-            metadata_file = f"{self.store_path}_metadata.json"
+    @property
+    def collection(self):
+        db = get_db()
+        if db is not None:
+            return db["knowledge_chunks"]
+        return None
 
-        if os.path.exists(index_file) and os.path.exists(metadata_file):
-            try:
-                self.index = faiss.read_index(index_file)
-                with open(metadata_file, "r", encoding="utf-8") as f:
-                    self.metadata = json.load(f)
-                print(f"FAISS index loaded successfully from '{index_file}'. Loaded {len(self.metadata)} documents.")
-            except Exception as e:
-                print(f"Error loading FAISS index: {e}")
-                self.index = None
-                self.metadata = []
-        else:
-            print(f"FAISS index files not found at '{index_file}'. Please run build_vector_index.py to generate them.")
-            self.index = None
-            self.metadata = []
-
-    def save_index(self):
-        """Save FAISS index and documents metadata (in case index is constructed dynamically)."""
-        if not self.index or not self.metadata:
+    async def ensure_vector_search_index(self):
+        """
+        Attempt to create a search index on Atlas.
+        Fails silently with warning on local/non-Atlas MongoDB deployments.
+        """
+        col = self.collection
+        if col is None:
             return
             
-        if self.store_path.endswith("faiss_index"):
-            os.makedirs(self.store_path, exist_ok=True)
-            index_file = os.path.join(self.store_path, "index.faiss")
-            metadata_file = os.path.join(self.store_path, "index_metadata.json")
-        else:
-            os.makedirs(os.path.dirname(self.store_path), exist_ok=True)
-            index_file = f"{self.store_path}.faiss"
-            metadata_file = f"{self.store_path}_metadata.json"
-
         try:
-            faiss.write_index(self.index, index_file)
-            with open(metadata_file, "w", encoding="utf-8") as f:
-                json.dump(self.metadata, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Error saving FAISS index: {e}")
-
-    async def search(self, query_embedding: List[float], top_k: int = 4) -> List[Tuple[DocumentChunk, float]]:
-        """
-        Search for top_k documents similar to the query embedding.
-        Uses Cosine Similarity via Inner Product of normalized vectors.
-        """
-        if self.index is None or not self.metadata:
-            # Fallback mock chunk if index is empty/not built yet
-            mock_chunk = DocumentChunk(
-                id="doc_mock_default",
-                text="Hạn mức chuyển tiền tối đa qua ví VSmartPay là 50.000.000 VND/ngày đối với tài khoản đã xác thực.",
-                metadata={"source": "limits.md"},
-                score=0.95
-            )
-            return [(mock_chunk, 0.95)]
-
-        try:
-            # Query embedding vector L2 Normalization
-            query_np = np.array([query_embedding]).astype("float32")
-            faiss.normalize_L2(query_np)
-
-            # Search in FlatIP index
-            scores, indices = self.index.search(query_np, top_k)
-            
-            results = []
-            for score, idx in zip(scores[0], indices[0]):
-                if idx < 0 or idx >= len(self.metadata):
-                    continue
-                
-                meta = self.metadata[idx]
-                chunk = DocumentChunk(
-                    id=meta["chunk_id"],
-                    text=meta["content"],
-                    metadata={"source": os.path.basename(meta["source_path"]), "category": meta["category"]},
-                    score=float(score)
+            if hasattr(col, "create_search_index"):
+                # Standard KNN vector index configuration
+                index_definition = {
+                    "mappings": {
+                        "dynamic": True,
+                        "fields": {
+                            "embedding": {
+                                "type": "knnVector",
+                                "dimensions": 1536,
+                                "similarity": "cosine"
+                            }
+                        }
+                    }
+                }
+                await col.create_search_index(
+                    definition=index_definition,
+                    name=self.index_name
                 )
-                results.append((chunk, float(score)))
-                
-            return results
+                print(f"MongoDB Vector Search index '{self.index_name}' successfully created or verified.")
         except Exception as e:
-            print(f"Error during FAISS search: {e}")
-            # Safe fallback
-            mock_chunk = DocumentChunk(
-                id="doc_mock_default",
-                text="Hạn mức chuyển tiền tối đa qua ví VSmartPay là 50.000.000 VND/ngày đối với tài khoản đã xác thực.",
-                metadata={"source": "limits.md"},
-                score=0.95
+            # Atlas Search Index creation is only supported on MongoDB Atlas.
+            # Local MongoDB community instances will raise an exception; we log and pass.
+            print(f"Warning: MongoDB Atlas Search index creation skipped or failed: {e}. Local fallback search will be used if needed.")
+
+    async def save_index(self):
+        """No-op for MongoDB Vector Search as chunks are saved directly to MongoDB."""
+        pass
+
+    async def load_index(self):
+        """No-op for MongoDB Vector Search."""
+        pass
+
+    async def add_chunks(self, chunks: List[Dict[str, Any]]):
+        """Insert knowledge chunks directly into MongoDB knowledge_chunks collection."""
+        col = self.collection
+        if col is not None and chunks:
+            await col.insert_many(chunks)
+
+    async def delete_chunks_by_doc_id(self, doc_id: str):
+        """Delete all chunks belonging to a specific doc_id."""
+        col = self.collection
+        if col is not None:
+            await col.delete_many({"doc_id": doc_id})
+
+    async def search(
+        self, 
+        query_embedding: List[float], 
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[DocumentChunk, float]]:
+        """
+        Perform vector similarity search.
+        Attempts MongoDB Atlas $vectorSearch aggregate pipeline first.
+        Falls back to client-side cosine similarity calculation if aggregate fails or is unsupported.
+        """
+        col = self.collection
+        if col is None:
+            return []
+
+        # 1. MongoDB Atlas Vector Search Pipeline
+        pipeline = [
+            {
+                "$vectorSearch": {
+                    "index": self.index_name,
+                    "path": "embedding",
+                    "queryVector": query_embedding,
+                    "numCandidates": 100,
+                    "limit": top_k
+                }
+            }
+        ]
+
+        # Inject filters into $vectorSearch if present
+        if filter_dict:
+            pipeline[0]["$vectorSearch"]["filter"] = filter_dict
+
+        try:
+            cursor = col.aggregate(pipeline)
+            results = []
+            async for doc in cursor:
+                # Atlas vectorSearch returns results ordered by score.
+                # In MongoDB, the similarity score is represented by a metadata score or the distance.
+                # MongoDB Atlas search results in aggregate can obtain a search score.
+                score = doc.get("$vectorSearchScore", 1.0)
+                
+                chunk = DocumentChunk(
+                    id=doc.get("chunk_id", ""),
+                    text=doc.get("content", ""),
+                    metadata={
+                        "source": doc.get("file_name", ""),
+                        "category": doc.get("category", ""),
+                        "page": doc.get("page"),
+                        "heading": doc.get("heading"),
+                        "agent_scope": doc.get("agent_scope"),
+                        "kb_type": doc.get("kb_type"),
+                        "language": doc.get("language")
+                    },
+                    score=score
+                )
+                results.append((chunk, score))
+                
+            if results:
+                return results[:top_k]
+                
+        except Exception as e:
+            # If $vectorSearch is unsupported (e.g. running local MongoDB Community Edition),
+            # log the warning and proceed to manual fallback calculation.
+            print(f"Atlas $vectorSearch failed or is unsupported on this environment: {e}. Falling back to manual search.")
+
+        # 2. Local Fallback Search using manual Cosine Similarity
+        return await self._fallback_manual_search(query_embedding, top_k, filter_dict)
+
+    async def _fallback_manual_search(
+        self, 
+        query_embedding: List[float], 
+        top_k: int, 
+        filter_dict: Optional[Dict[str, Any]]
+    ) -> List[Tuple[DocumentChunk, float]]:
+        col = self.collection
+        if col is None:
+            return []
+
+        # Parse MongoDB Match filter criteria to apply local filtering
+        query_criteria = {}
+        if filter_dict:
+            for key, val in filter_dict.items():
+                if isinstance(val, dict) and "$eq" in val:
+                    query_criteria[key] = val["$eq"]
+                else:
+                    query_criteria[key] = val
+
+        # Fetch matching chunks
+        cursor = col.find(query_criteria)
+        all_docs = []
+        async for doc in cursor:
+            all_docs.append(doc)
+
+        if not all_docs:
+            return []
+
+        # Calculate cosine similarity manually using numpy
+        query_vector = np.array(query_embedding).astype("float32")
+        query_norm = np.linalg.norm(query_vector)
+
+        search_results = []
+        for doc in all_docs:
+            doc_emb = doc.get("embedding")
+            if not doc_emb or len(doc_emb) != len(query_embedding):
+                continue
+                
+            doc_vector = np.array(doc_emb).astype("float32")
+            doc_norm = np.linalg.norm(doc_vector)
+            
+            if query_norm == 0 or doc_norm == 0:
+                similarity = 0.0
+            else:
+                similarity = float(np.dot(query_vector, doc_vector) / (query_norm * doc_norm))
+
+            chunk = DocumentChunk(
+                id=doc.get("chunk_id", ""),
+                text=doc.get("content", ""),
+                metadata={
+                    "source": doc.get("file_name", ""),
+                    "category": doc.get("category", ""),
+                    "page": doc.get("page"),
+                    "heading": doc.get("heading"),
+                    "agent_scope": doc.get("agent_scope"),
+                    "kb_type": doc.get("kb_type"),
+                    "language": doc.get("language")
+                },
+                score=similarity
             )
-            return [(mock_chunk, 0.95)]
+            search_results.append((chunk, similarity))
+
+        # Sort descending by similarity score
+        search_results.sort(key=lambda x: x[1], reverse=True)
+        return search_results[:top_k]
