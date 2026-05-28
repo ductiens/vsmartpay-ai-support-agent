@@ -3,13 +3,6 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.responses import JSONResponse
 
-from app.common.constants import (
-    TransactionType,
-    TransactionStatus,
-    WalletStatus,
-    LedgerEntryType,
-    Currency,
-)
 from app.common.exceptions import (
     AppException,
     NotFoundException,
@@ -24,31 +17,6 @@ from app.common.utils import (
     hash_password,
     verify_password,
 )
-
-
-def test_constants():
-    # TransactionType
-    assert TransactionType.DEPOSIT == "DEPOSIT"
-    assert TransactionType.WITHDRAW == "WITHDRAW"
-    assert TransactionType.TRANSFER == "TRANSFER"
-
-    # TransactionStatus
-    assert TransactionStatus.PENDING == "PENDING"
-    assert TransactionStatus.SUCCESS == "SUCCESS"
-    assert TransactionStatus.FAILED == "FAILED"
-
-    # WalletStatus
-    assert WalletStatus.ACTIVE == "ACTIVE"
-    assert WalletStatus.LOCKED == "LOCKED"
-    assert WalletStatus.INACTIVE == "INACTIVE"
-
-    # LedgerEntryType
-    assert LedgerEntryType.DEBIT == "DEBIT"
-    assert LedgerEntryType.CREDIT == "CREDIT"
-
-    # Currency
-    assert Currency.VND == "VND"
-    assert Currency.USD == "USD"
 
 
 def test_exceptions():

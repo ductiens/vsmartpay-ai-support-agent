@@ -82,3 +82,5 @@ coverage.xml
 cover/
 
 pyrightconfig.json
+
+topic.md

@@ -8,14 +8,6 @@ from app.common.exceptions import AppException
 from app.common.response import error_response
 from fastapi.exceptions import RequestValidationError
 
-from app.modules.users.repository import ensure_indexes as ensure_users_indexes
-from app.modules.users.router import router as users_router
-from app.modules.wallets.repository import ensure_indexes as ensure_wallets_indexes
-from app.modules.wallets.router import router as wallets_router
-from app.modules.ledger.repository import ensure_indexes as ensure_ledger_indexes
-from app.modules.ledger.router import router as ledger_router
-
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -29,14 +21,9 @@ async def lifespan(app: FastAPI):
     try:
         await db_manager.connect()
         if db_manager.db is not None:
-            await ensure_users_indexes(db_manager.db)
-            logger.info("Users database indexes ensured successfully.")
-            await ensure_wallets_indexes(db_manager.db)
-            logger.info("Wallets database indexes ensured successfully.")
-            await ensure_ledger_indexes(db_manager.db)
-            logger.info("Ledger database indexes ensured successfully.")
+            logger.info("Database connected successfully during startup.")
     except Exception as e:
-        logger.error(f"Startup database connection or index setup failed: {e}")
+        logger.error(f"Startup database connection failed: {e}")
     yield
     # Shutdown: Close database connection
     await db_manager.close()
@@ -47,10 +34,6 @@ app = FastAPI(
     debug=settings.DEBUG,
     lifespan=lifespan
 )
-
-app.include_router(users_router)
-app.include_router(wallets_router)
-app.include_router(ledger_router)
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)
@@ -96,3 +79,10 @@ if settings.BACKEND_CORS_ORIGINS:
         allow_headers=["*"],
     )
 
+# Health endpoint
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "service": "VSmartPay AI Support Agent"
+    }

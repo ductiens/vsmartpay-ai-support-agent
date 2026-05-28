@@ -10,13 +10,13 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
-    APP_NAME: str = "Mini Wallet API"
+    APP_NAME: str = "VSmartPay AI Support Agent"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 
     # MongoDB
     MONGODB_URL: str
-    DATABASE_NAME: str = "mini_wallet"
+    DATABASE_NAME: str = "vsmartpay_support_agent"
 
     # Security
     SECRET_KEY: str

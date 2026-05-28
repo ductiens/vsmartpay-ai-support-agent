@@ -1,115 +1,98 @@
-# Mini Wallet Python
+# VSmartPay AI Support Agent
 
-A secure, high-performance Fintech Mini-Wallet application backend built with FastAPI, MongoDB, and Python. This project features asynchronous database operations, modular design, and robust data analytics/risk scoring ready for Kaggle dataset integrations.
-
----
-
-## 🚀 Key Features
-
-* **FastAPI Backend**: Fully asynchronous endpoint handlers with automated Swagger UI documentation.
-* **MongoDB & Motor**: Non-blocking database transactions and high-concurrency connections suited for high-volume transactions (fully compatible with MongoDB Atlas).
-* **Modular Architecture**: Separate sub-modules for `users`, `wallets`, `transactions`, `ledger`, and `risk` scoring.
-* **Risk & Fraud Analytics**: Built-in foundation for risk analysis using machine learning on the Kaggle PaySim dataset.
+Vietnamese RAG-based Customer Support Agent for Fintech Wallet.
 
 ---
 
-## 🛠️ Technology Stack
+## 📌 Phase 1: Codebase Cleanup
+
+Dự án hiện tại vừa thực hiện pha dọn dẹp (cleanup) codebase cũ từ Mini Wallet backend để chuẩn bị refactor sang chatbot support agent.
+
+### Những việc đã thực hiện trong pha này:
+- Xóa bỏ các modules nghiệp vụ ví điện tử không liên quan (`users`, `wallets`, `ledger`, `risk`, `transactions`, `analytics`, `agents`).
+- Xóa bỏ các scripts liên quan đến Kaggle / PaySim / sandbox seed data.
+- Loại bỏ các integration tests cũ và cập nhật lại tests cơ bản.
+- Sửa đổi config, dọn dẹp `constants.py` và đơn giản hóa `app/main.py`.
+- Tích hợp thêm endpoint GET `/health` mới phục vụ hệ thống AI Support Agent.
+
+> [!NOTE]
+> Phase này mới chỉ dừng lại ở bước dọn dẹp hệ thống cũ, các thành phần RAG, Vector Database (nếu có) và Chatbot logic sẽ được bổ sung và phát triển trong các phase tiếp theo.
+
+---
+
+## 🛠️ Technology Stack (Mục tiêu & Cơ bản)
 
 * **Language**: Python 3.10+
-* **Web Framework**: FastAPI (Uvicorn as ASGI server)
+* **Web Framework**: FastAPI (Uvicorn làm ASGI server)
 * **Database**: MongoDB (via `motor` asynchronous driver & `pymongo`)
 * **Validation & Settings**: Pydantic v2 & Pydantic Settings
-* **Data Processing**: Pandas, tqdm
-* **Machine Learning & Datasets**: Kaggle API (for PaySim dataset download & training)
-* **Containerization**: Docker & Docker Compose
+* **Testing**: pytest & pytest-asyncio
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Structure Hiện tại
 
 ```text
-mini-wallet-python/
+vsmartpay-ai-support-agent/
 ├── app/
 │   ├── main.py            # Main application entrypoint
 │   ├── config.py          # Configuration & environment variables reader
 │   ├── database.py        # Asynchronous MongoDB (Motor) connection manager
 │   │
-│   ├── modules/           # Business logic modules
-│   │   ├── users/         # User management, authentication, & profiles
-│   │   ├── wallets/       # Wallet accounts & balances
-│   │   ├── transactions/  # Peer-to-peer transfers, deposits, withdrawals
-│   │   ├── ledger/        # Double-entry ledger entries for absolute consistency
-│   │   └── risk/          # Kaggle dataset integration & real-time risk scoring
-│   │       ├── service.py
-│   │       ├── rules.py
-│   │       └── schema.py
-│   │
 │   └── common/            # Shared utilities, exceptions, & helpers
+│       ├── constants.py   # App constants
+│       ├── exceptions.py  # Global application exceptions
+│       ├── response.py    # Unified API response helpers
+│       └── utils.py       # Cryptography & ID helpers
 │
-├── scripts/               # Helper & automation scripts
-│   ├── download_kaggle_dataset.py   # Pulls datasets from Kaggle
-│   ├── inspect_csv.py               # Utility to inspect large raw data
-│   ├── import_paysim_to_mongo.py   # Imports CSV datasets to MongoDB
-│   ├── seed_demo_data.py            # Generates test sandbox data
-│   ├── reset_db.py                  # Resets database collections
-│   └── README.md
+├── tests/                 # Unit & basic test suites
+│   ├── conftest.py
+│   └── test_common.py
 │
-├── data/                  # Git-ignored local data directories
-│   ├── raw/               # Downloaded Kaggle datasets (e.g. PaySim CSV)
-│   ├── processed/         # Cleaned/processed datasets
-│   └── sample/            # Sandbox/sample sets for fast testing
-│
-├── tests/                 # Unit & integration testing suites
 ├── requirements.txt       # Dependencies
 ├── .env                   # Environment configurations
-├── .env.example           # Example environment template
-└── docker-compose.yml     # Local services deployment orchestration
+└── .env.example           # Example environment template
 ```
 
 ---
 
 ## ⚙️ Quick Start
 
-### 1. Prerequisites
-Ensure you have the following installed on your machine:
-* Python 3.10 or higher
-* MongoDB Atlas cluster or a local MongoDB instance
+### 1. Cài đặt môi trường
+Đảm bảo bạn đã cài đặt Python 3.10 trở lên và MongoDB.
 
-### 2. Install Dependencies
-Create a virtual environment and install the required dependencies:
+Tạo môi trường ảo và cài đặt thư viện:
 ```bash
-# Create virtual environment
-python -m venv venv
+# Tạo virtual environment
+# Với python 3.14 (ví dụ trên Windows):
+& "D:\New folder\python.exe" -m venv venv
 
-# Activate virtual environment
-# On Windows:
-.\venv\Scripts\activate
-# On macOS/Linux:
+# Kích hoạt virtual environment
+# Trên Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+# Trên macOS/Linux:
 source venv/bin/activate
 
-# Install requirements
+# Cài đặt requirements
 pip install -r requirements.txt
 ```
 
-### 3. Environment Configurations
-Copy `.env.example` to `.env` and fill in your connection details (especially your **MongoDB Atlas connection URI**):
-```bash
-cp .env.example .env
-```
+### 2. Cấu hình .env
+Copy `.env.example` thành `.env` và tùy chỉnh các tham số kết nối MongoDB Atlas/Local của bạn.
 
-Open `.env` and adjust the variables:
-```env
-MONGODB_URL=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
-DATABASE_NAME=mini_wallet
-SECRET_KEY=generate-a-secure-random-key-here
-```
-
-### 4. Run the Application
-Start the FastAPI development server using Uvicorn:
+### 3. Khởi chạy phát triển
+Chạy ứng dụng:
 ```bash
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-* **API Base URL**: `http://127.0.0.1:8000`
-* **Interactive API Docs (Swagger)**: `http://127.0.0.1:8000/docs`
-* **Health Check Endpoint**: `http://127.0.0.1:8000/health`
+Các URL quan trọng:
+* **Base URL**: `http://127.0.0.1:8000`
+* **Health Check**: `http://127.0.0.1:8000/health`
+* **Swagger API Docs**: `http://127.0.0.1:8000/docs`
+
+### 4. Kiểm thử
+Chạy bộ unit test:
+```bash
+pytest
+```
