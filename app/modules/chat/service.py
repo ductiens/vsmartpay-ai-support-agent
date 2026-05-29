@@ -21,15 +21,13 @@ class ChatService:
     async def process_message(self, request: ChatRequest) -> ChatResponse:
         """
         Main chat flow:
-        1. Log user message & session in MongoDB Atlas.
-        2. Classify intent.
-        3. Retrieve relevant chunks (FAISS RAG).
-        4. Detect intent & call corresponding mock tools (check_balance, get_fee, get_transaction_status).
-        5. Check escalation policies. If escalated, call create_support_ticket tool to save ticket to MongoDB.
-        6. Build grounded prompt including tool outputs and call OpenAI or generate fallback response.
-        7. Log assistant answer and return response.
+        Runs through LangGraph multi-agent orchestration when settings.USE_LANGGRAPH=True.
+        Falls back to the legacy ChatService pipeline when settings.USE_LANGGRAPH=False.
         """
-        # Step 1: Log session and user message in MongoDB
+        if settings.USE_LANGGRAPH:
+            from app.core.graph import execute_graph
+            return await execute_graph(request)
+
         await self.repository.log_session(request.session_id, request.user_id)
         await self.repository.log_message(
             session_id=request.session_id,

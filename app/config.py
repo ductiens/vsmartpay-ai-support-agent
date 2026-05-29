@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     VECTOR_STORE_PATH: str = "vector_store/faiss_index"
     MONGODB_VECTOR_INDEX_NAME: str = "vector_index"
     TOP_K: int = 5
+    USE_LANGGRAPH: bool = False
+
 
     # API
     API_V1_STR: str = "/api/v1"
