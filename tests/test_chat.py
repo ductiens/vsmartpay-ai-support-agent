@@ -100,3 +100,25 @@ async def test_tools_fees_endpoint(client):
     assert data["transfer_fee"] == 0
     assert data["withdrawal_fee"] == 1100
     assert data["deposit_fee"] == 0
+
+
+@pytest.mark.asyncio
+@patch("app.modules.tools.mock_wallet.MockWalletClient.get_transaction_by_id")
+async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
+    mock_get_tx_by_id.return_value = None
+    response = await client.get("/tools/transactions/non_existent_tx_id")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["success"] is False
+    assert data["error_code"] == "RESOURCE_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+@patch("app.modules.tools.mock_wallet.MockWalletClient.get_wallet_by_user_id")
+async def test_tools_balance_not_found(mock_get_wallet, client):
+    mock_get_wallet.return_value = None
+    response = await client.get("/tools/balance/non_existent_user_id")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["success"] is False
+    assert data["error_code"] == "RESOURCE_NOT_FOUND"

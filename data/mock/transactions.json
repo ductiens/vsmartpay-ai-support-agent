@@ -1,5 +1,41 @@
 [
   {
+    "transaction_id": "txn_001",
+    "user_id": "user_001",
+    "amount": 100000,
+    "type": "TRANSFER",
+    "status": "SUCCESS",
+    "timestamp": "2026-05-28T08:30:00Z",
+    "currency": "VND"
+  },
+  {
+    "transaction_id": "txn_002",
+    "user_id": "user_001",
+    "amount": 150000,
+    "type": "TRANSFER",
+    "status": "PENDING",
+    "timestamp": "2026-05-28T09:00:00Z",
+    "currency": "VND"
+  },
+  {
+    "transaction_id": "txn_003",
+    "user_id": "user_001",
+    "amount": 200000,
+    "type": "TRANSFER",
+    "status": "FAILED",
+    "timestamp": "2026-05-28T09:30:00Z",
+    "currency": "VND"
+  },
+  {
+    "transaction_id": "txn_004",
+    "user_id": "user_001",
+    "amount": 250000,
+    "type": "TRANSFER",
+    "status": "REFUNDED",
+    "timestamp": "2026-05-28T10:00:00Z",
+    "currency": "VND"
+  },
+  {
     "transaction_id": "tx_001",
     "user_id": "usr_001",
     "amount": 100000,

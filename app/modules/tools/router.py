@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
-from app.modules.tools.schema import BalanceResponse, TransactionDetail, FeesResponse
+from fastapi import APIRouter
+from typing import Optional
+from app.modules.tools.schema import BalanceResponse, TransactionDetail
 from app.modules.tools.service import ToolService
 
 router = APIRouter(prefix="/tools", tags=["Financial Tools"])
@@ -13,6 +14,6 @@ async def get_balance(user_id: str):
 async def get_transaction(transaction_id: str):
     return await tool_service.get_transaction(transaction_id)
 
-@router.get("/fees", response_model=FeesResponse)
-async def get_fees():
-    return await tool_service.get_fees()
+@router.get("/fees")
+async def get_fees(transaction_type: Optional[str] = None, amount: Optional[int] = None):
+    return await tool_service.get_fees(transaction_type, amount)

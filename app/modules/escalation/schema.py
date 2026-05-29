@@ -9,3 +9,4 @@ class EscalationRequest(BaseModel):
 class EscalationResponse(BaseModel):
     required: bool
     reason: Optional[str] = None
+    priority: Optional[str] = None

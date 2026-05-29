@@ -1,5 +1,12 @@
 [
   {
+    "wallet_id": "wallet_001",
+    "user_id": "user_001",
+    "balance": 2500000,
+    "currency": "VND",
+    "status": "ACTIVE"
+  },
+  {
     "wallet_id": "wlt_001",
     "user_id": "usr_001",
     "balance": 2500000,
