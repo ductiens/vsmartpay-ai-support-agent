@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     TOP_K: int = 5
     USE_LANGGRAPH: bool = False
     VECTOR_STORE: str = "faiss"
+    CHUNK_SIZE: int = 800
+    CHUNK_OVERLAP: int = 100
 
 
 
