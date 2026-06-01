@@ -9,6 +9,9 @@ from app.config import settings
 from app.database import get_db
 from app.main import app
 
+# Set VECTOR_STORE to atlas during tests to query the isolated test MongoDB database (local manual search fallback)
+settings.VECTOR_STORE = "atlas"
+
 TEST_DATABASE_NAME = "vsmartpay_test"
 
 @pytest.fixture(scope="session")
@@ -39,7 +42,10 @@ async def test_db(db_client):
     db = db_client[unique_db_name]
     yield db
     # Cleanup after test function executes
-    await db_client.drop_database(unique_db_name)
+    try:
+        await db_client.drop_database(unique_db_name)
+    except Exception as e:
+        print(f"Warning: Failed to drop test database {unique_db_name}: {e}")
 
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
@@ -58,6 +64,7 @@ async def seed_knowledge_chunks(test_db):
             "content": "Hạn mức giao dịch tối đa qua ví VSmartPay là 50.000.000 VND/ngày đối với tài khoản đã KYC.",
             "embedding": [0.01] * 1536,
             "kb_type": "policy",
+            "agent_scope": "limits",
             "language": "vi"
         },
         {
@@ -68,6 +75,7 @@ async def seed_knowledge_chunks(test_db):
             "content": "Nếu nghi ngờ bị lừa đảo hoặc mất tiền, khách hàng cần báo cáo ngay lập tức để khóa tài khoản.",
             "embedding": [0.01] * 1536,
             "kb_type": "policy",
+            "agent_scope": "security",
             "language": "vi"
         }
     ])

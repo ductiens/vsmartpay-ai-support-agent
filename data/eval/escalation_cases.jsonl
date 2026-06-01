@@ -1,2 +1,15 @@
-{"query": "Ví của tôi bị mất tiền không rõ lý do, hãy chuyển cho nhân viên ngay!", "expected_escalation": true, "reason": "Bị mất tiền"}
-{"query": "Tôi muốn biết làm thế nào nạp tiền từ Techcombank?", "expected_escalation": false, "reason": null}
+{"id": "esc_01", "question": "Tôi bị trừ tiền oan trong tài khoản ví, số dư bỗng nhiên bị mất sạch", "expected_intent": "FRAUD_OR_SCAM_REPORT", "reason_category": "lost money", "must_escalate": true}
+{"id": "esc_02", "question": "Tài khoản của tôi bị hack mất sạch tiền rồi, giúp tôi đòi lại tiền với!", "expected_intent": "FRAUD_OR_SCAM_REPORT", "reason_category": "lost money", "must_escalate": true}
+{"id": "esc_03", "question": "Tôi nghi ngờ có kẻ gian lừa đảo dụ tôi chuyển tiền qua ví VSmartPay", "expected_intent": "FRAUD_OR_SCAM_REPORT", "reason_category": "fraud", "must_escalate": true}
+{"id": "esc_04", "question": "Có người gọi bảo là nhân viên ví yêu cầu chuyển khoản, tôi nghi ngờ scam lừa đảo", "expected_intent": "FRAUD_OR_SCAM_REPORT", "reason_category": "fraud", "must_escalate": true}
+{"id": "esc_05", "question": "Tôi lỡ chia sẻ mã OTP và mật khẩu cho người lạ, giờ bị khóa tài khoản", "expected_intent": "ACCOUNT_SECURITY", "reason_category": "OTP leakage", "must_escalate": true}
+{"id": "esc_06", "question": "Tôi nhận được tin nhắn báo lộ mã OTP đăng nhập, phải làm sao?", "expected_intent": "ACCOUNT_SECURITY", "reason_category": "OTP leakage", "must_escalate": true}
+{"id": "esc_07", "question": "Giao dịch chuyển khoản của tôi bị lỗi thất bại hệ thống rồi, bên kia chưa nhận được", "expected_intent": "FAILED_TRANSACTION", "reason_category": "FAILED transaction", "must_escalate": true}
+{"id": "esc_08", "question": "Chuyển khoản báo giao dịch thất bại nhưng tài khoản của tôi vẫn bị trừ tiền", "expected_intent": "FAILED_TRANSACTION", "reason_category": "FAILED transaction", "must_escalate": true}
+{"id": "esc_09", "question": "Trạng thái giao dịch mã txn_002 đang ở trạng thái PENDING chờ lâu quá chưa thành công", "expected_intent": "TRANSACTION_STATUS", "reason_category": "PENDING transaction", "must_escalate": true}
+{"id": "esc_10", "question": "Giao dịch tx_001 bị treo đang xử lý mãi không xong", "expected_intent": "TRANSACTION_STATUS", "reason_category": "PENDING transaction", "must_escalate": true}
+{"id": "esc_11", "question": "Thời tiết ngày mai ở Hà Nội thế nào?", "expected_intent": "OUT_OF_SCOPE", "reason_category": "OUT_OF_SCOPE", "must_escalate": true}
+{"id": "esc_12", "question": "Chỉ tôi cách sửa tủ lạnh bị hỏng", "expected_intent": "OUT_OF_SCOPE", "reason_category": "OUT_OF_SCOPE", "must_escalate": true}
+{"id": "esc_13", "question": "Làm sao để đăng ký tài khoản facebook?", "expected_intent": "OUT_OF_SCOPE", "reason_category": "OUT_OF_SCOPE", "must_escalate": true}
+{"id": "esc_14", "question": "Ví", "expected_intent": "FAQ_GENERAL", "reason_category": "low confidence", "must_escalate": true}
+{"id": "esc_15", "question": "A", "expected_intent": "FAQ_GENERAL", "reason_category": "low confidence", "must_escalate": true}

@@ -78,15 +78,19 @@ class VectorStoreService:
     ) -> List[Tuple[DocumentChunk, float]]:
         """
         Perform vector similarity search.
-        Attempts MongoDB Atlas $vectorSearch aggregate pipeline first.
-        Falls back to client-side cosine similarity calculation if aggregate fails or is unsupported.
+        Routes to FAISS search if VECTOR_STORE settings config is set to 'faiss'.
+        Otherwise, attempts MongoDB Atlas $vectorSearch aggregate pipeline first,
+        and falls back to client-side cosine similarity calculation if aggregate fails.
         """
+        if getattr(settings, "VECTOR_STORE", "atlas").lower() == "faiss":
+            return await self._search_faiss(query_embedding, top_k, filter_dict)
+
         col = self.collection
         if col is None:
             return []
 
         # 1. MongoDB Atlas Vector Search Pipeline
-        pipeline = [
+        pipeline: List[Dict[str, Dict[str, Any]]] = [
             {
                 "$vectorSearch": {
                     "index": self.index_name,
@@ -203,3 +207,127 @@ class VectorStoreService:
         # Sort descending by similarity score
         search_results.sort(key=lambda x: x[1], reverse=True)
         return search_results[:top_k]
+
+    def _load_faiss_index(self):
+        if hasattr(self, "_faiss_index") and getattr(self, "_faiss_index") is not None:
+            return self._faiss_index, self._faiss_metadata
+
+        import json
+        import os
+        try:
+            import faiss
+        except ImportError:
+            print("Error: faiss-cpu package is not installed. Please run pip install faiss-cpu.")
+            self._faiss_index = None
+            self._faiss_metadata = []
+            return None, []
+
+        vector_store_dir = settings.VECTOR_STORE_PATH
+        if vector_store_dir.endswith("faiss_index"):
+            index_file = os.path.join(vector_store_dir, "index.faiss")
+            metadata_file = os.path.join(vector_store_dir, "index_metadata.json")
+        else:
+            index_file = f"{vector_store_dir}.faiss"
+            metadata_file = f"{vector_store_dir}_metadata.json"
+
+        if os.path.exists(index_file) and os.path.exists(metadata_file):
+            try:
+                self._faiss_index = faiss.read_index(index_file)
+                with open(metadata_file, "r", encoding="utf-8") as f:
+                    self._faiss_metadata = json.load(f)
+                return self._faiss_index, self._faiss_metadata
+            except Exception as e:
+                print(f"Error loading FAISS index: {e}")
+        
+        self._faiss_index = None
+        self._faiss_metadata = []
+        return None, []
+
+    async def _search_faiss(
+        self, 
+        query_embedding: List[float], 
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[DocumentChunk, float]]:
+        import numpy as np
+        try:
+            import faiss
+        except ImportError:
+            return []
+
+        index, metadata = self._load_faiss_index()
+        if not index or not metadata:
+            print("Warning: FAISS index or metadata not found or empty. Returning empty search results.")
+            return []
+
+        # Convert query_embedding to numpy float32
+        query_np = np.array([query_embedding]).astype("float32")
+        faiss.normalize_L2(query_np)
+
+        # Search in FAISS
+        scores, indices = index.search(query_np, top_k * 4) # Fetch more to allow filter filtering
+        
+        results = []
+        for score, idx in zip(scores[0], indices[0]):
+            if idx < 0 or idx >= len(metadata):
+                continue
+            item = metadata[idx]
+            
+            doc_id = item.get("doc_id", "")
+            category = item.get("category", "")
+            
+            # Infer kb_type and agent_scope based on doc_id and category
+            kb_type = "faq"
+            agent_scope = "general"
+            if "limit" in doc_id.lower() or "limit" in category.lower():
+                kb_type = "policy"
+                agent_scope = "limits"
+            elif "fee" in doc_id.lower() or "fee" in category.lower():
+                kb_type = "policy"
+                agent_scope = "fees"
+            elif "security" in doc_id.lower() or "security" in category.lower():
+                kb_type = "policy"
+                agent_scope = "security"
+            elif "transfer" in doc_id.lower() or "transfer" in category.lower():
+                kb_type = "faq"
+                agent_scope = "transfer"
+                
+            # Perform metadata filtering
+            if filter_dict:
+                matched = True
+                for k, val in filter_dict.items():
+                    expected_val = val.get("$eq") if isinstance(val, dict) and "$eq" in val else val
+                    actual_val = None
+                    if k == "agent_scope":
+                        actual_val = agent_scope
+                    elif k == "kb_type":
+                        actual_val = kb_type
+                    elif k == "category":
+                        actual_val = category
+                    elif k == "doc_id" or k == "file_name":
+                        actual_val = doc_id
+                        
+                    if actual_val != expected_val:
+                        matched = False
+                        break
+                if not matched:
+                    continue
+                    
+            chunk = DocumentChunk(
+                id=item.get("chunk_id", ""),
+                text=item.get("content", ""),
+                metadata={
+                    "source": doc_id,
+                    "category": category,
+                    "page": item.get("page", 1),
+                    "heading": item.get("heading", ""),
+                    "agent_scope": agent_scope,
+                    "kb_type": kb_type,
+                    "language": "vi"
+                },
+                score=float(score)
+            )
+            results.append((chunk, float(score)))
+            
+        return results[:top_k]
+

@@ -1,6 +1,26 @@
 {
-  "intent_accuracy": 0.0,
-  "rag_faithfulness": 0.0,
-  "rag_answer_relevance": 0.0,
-  "escalation_f1_score": 0.0
+  "legacy_rag": {
+    "intent_accuracy": 0.7555555555555555,
+    "recall_at_k": 0.6666666666666666,
+    "groundedness_rate": 0.9333333333333333,
+    "hallucination_rate": 0.06666666666666667,
+    "escalation_precision": 0.5333333333333333,
+    "escalation_recall": 1.0,
+    "retrieval_filter_accuracy": 1.0,
+    "chunk_source_accuracy": 1.0,
+    "p95_latency_ms": 429.17428000000655,
+    "avg_latency_ms": 317.578457777563
+  },
+  "langgraph_multi_agent": {
+    "intent_accuracy": 0.7555555555555555,
+    "recall_at_k": 0.24444444444444444,
+    "groundedness_rate": 0.35555555555555557,
+    "hallucination_rate": 0.6444444444444445,
+    "escalation_precision": 0.5333333333333333,
+    "escalation_recall": 1.0,
+    "retrieval_filter_accuracy": 1.0,
+    "chunk_source_accuracy": 0.5777777777777777,
+    "p95_latency_ms": 448.6659000001962,
+    "avg_latency_ms": 353.4174377777769
+  }
 }

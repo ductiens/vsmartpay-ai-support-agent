@@ -264,7 +264,10 @@ class ChatService:
                 answer = response.choices[0].message.content or ""
             except Exception as e:
                 # Safe fallback
-                answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Dựa trên tài liệu tra cứu: {retrieved_chunks[0].text[:250]}..."
+                if retrieved_chunks:
+                    answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Dựa trên tài liệu tra cứu: {retrieved_chunks[0].text[:250]}..."
+                else:
+                    answer = "Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Hiện tại tôi chưa tìm thấy tài liệu tra cứu tương ứng."
 
         # Step 7: Log assistant message in MongoDB
         # Convert ChatSource list to dictionaries for saving

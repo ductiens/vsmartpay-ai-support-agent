@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     MONGODB_VECTOR_INDEX_NAME: str = "vector_index"
     TOP_K: int = 5
     USE_LANGGRAPH: bool = False
+    VECTOR_STORE: str = "faiss"
+
 
 
     # API
