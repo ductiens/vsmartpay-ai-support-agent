@@ -8,7 +8,7 @@ class ToolService:
 
     async def get_balance(self, user_id: str) -> BalanceResponse:
         from app.modules.tools.mock_wallet import check_balance
-        data = check_balance(user_id)
+        data = await check_balance(user_id)
         if data is None:
             from app.common.exceptions import NotFoundException
             raise NotFoundException(f"Wallet for user {user_id} not found")
@@ -20,7 +20,7 @@ class ToolService:
 
     async def get_transaction(self, transaction_id: str) -> TransactionDetail:
         from app.modules.tools.mock_wallet import get_transaction_status
-        data = get_transaction_status(transaction_id)
+        data = await get_transaction_status(transaction_id)
         if data is None:
             # Fallback to MockWalletClient default mock data for backward compatibility
             data = self.wallet_client.get_transaction_by_id(transaction_id)

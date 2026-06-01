@@ -1,11 +1,24 @@
+"""
+Financial tools for chatbot integration.
+Functions called by LangGraph tool_router_node and legacy ChatService.
+
+These functions query MongoDB (via FinanceRepository) with a JSON file fallback
+if the database is not connected or data is not found.
+"""
 import json
 import os
+import logging
 from typing import Optional, Dict, Any
 
+logger = logging.getLogger(__name__)
+
+
 class MockWalletClient:
-    def __init__(self):
+    """Fallback client that reads from static JSON files in data/mock/."""
+
+    def __init__(self) -> None:
         self.mock_dir = "data/mock"
-        
+
     def _read_json(self, filename: str) -> list:
         filepath = os.path.join(self.mock_dir, filename)
         if os.path.exists(filepath):
@@ -41,18 +54,38 @@ class MockWalletClient:
         }
 
 
-# Standalone functions for direct call and mock_wallet tools integration
+# Standalone fallback client for JSON file reads
 _client = MockWalletClient()
 
-def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
+
+async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
     """
-    check_balance(user_id) - Reads wallets.json and returns wallet info.
+    check_balance(user_id) - Query MongoDB wallets collection.
+    Falls back to reading wallets.json if DB is not available.
     """
+    try:
+        from app.database import get_db
+        db = get_db()
+        if db is not None:
+            wallet = await db["wallets"].find_one({"user_id": user_id}, {"_id": 0})
+            if wallet is not None:
+                return {
+                    "user_id": wallet["user_id"],
+                    "balance": wallet["balance"],
+                    "currency": wallet.get("currency", "VND"),
+                    "status": wallet.get("status", "ACTIVE"),
+                }
+    except Exception as e:
+        logger.warning(f"check_balance DB query failed, falling back to JSON: {e}")
+
+    # Fallback to JSON file
     return _client.get_wallet_by_user_id(user_id)
+
 
 def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
     """
     get_fee(transaction_type, amount) - Returns fee info based on transaction type and amount.
+    Pure logic, no DB needed.
     """
     fee = 0
     tx_type_upper = transaction_type.upper()
@@ -69,25 +102,95 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
         "currency": "VND"
     }
 
-def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]]:
+
+async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]]:
     """
-    get_transaction_status(transaction_id) - Reads transactions.json and returns transaction status details.
+    get_transaction_status(transaction_id) - Query MongoDB transactions collection.
+    Falls back to reading transactions.json if DB is not available.
     """
+    try:
+        from app.database import get_db
+        db = get_db()
+        if db is not None:
+            txn = await db["transactions"].find_one(
+                {"transaction_id": transaction_id}, {"_id": 0}
+            )
+            if txn is not None:
+                return {
+                    "transaction_id": txn["transaction_id"],
+                    "user_id": txn.get("user_id", "unknown"),
+                    "amount": txn.get("amount", 0),
+                    "type": txn.get("type", "UNKNOWN"),
+                    "status": txn.get("status", "UNKNOWN"),
+                    "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
+                    "currency": "VND",
+                }
+    except Exception as e:
+        logger.warning(f"get_transaction_status DB query failed, falling back to JSON: {e}")
+
+    # Fallback to JSON file
     transactions = _client._read_json("transactions.json")
     for t in transactions:
         if t.get("transaction_id") == transaction_id:
             return t
     return None
 
-def get_user_kyc_status(user_id: str) -> str:
+
+async def get_transaction_history(user_id: str, limit: int = 10) -> list:
     """
-    get_user_kyc_status(user_id) - Reads users.json and returns the user KYC status.
+    get_transaction_history(user_id) - Query MongoDB for user's transaction history.
+    Falls back to reading transactions.json if DB is not available.
     """
+    try:
+        from app.database import get_db
+        db = get_db()
+        if db is not None:
+            cursor = db["transactions"].find(
+                {"user_id": user_id}, {"_id": 0}
+            ).sort("created_at", -1).limit(limit)
+            transactions = await cursor.to_list(length=limit)
+            result = []
+            for txn in transactions:
+                result.append({
+                    "transaction_id": txn["transaction_id"],
+                    "amount": txn.get("amount", 0),
+                    "type": txn.get("type", "UNKNOWN"),
+                    "status": txn.get("status", "UNKNOWN"),
+                    "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
+                    "currency": "VND",
+                })
+            if result:
+                return result
+    except Exception as e:
+        logger.warning(f"get_transaction_history DB query failed, falling back to JSON: {e}")
+
+    # Fallback to JSON file
+    all_txns = _client._read_json("transactions.json")
+    return [t for t in all_txns if t.get("user_id") == user_id][:limit]
+
+
+async def get_user_kyc_status(user_id: str) -> str:
+    """
+    get_user_kyc_status(user_id) - Query MongoDB users collection.
+    Falls back to reading users.json if DB is not available.
+    """
+    try:
+        from app.database import get_db
+        db = get_db()
+        if db is not None:
+            user = await db["users"].find_one({"user_id": user_id}, {"_id": 0})
+            if user is not None:
+                return user.get("kyc_status", "UNVERIFIED")
+    except Exception as e:
+        logger.warning(f"get_user_kyc_status DB query failed, falling back to JSON: {e}")
+
+    # Fallback to JSON file
     users = _client._read_json("users.json")
     for u in users:
         if u.get("user_id") == user_id:
             return u.get("kyc_status", "UNVERIFIED")
     return "UNVERIFIED"
+
 
 async def create_support_ticket(user_id: str, issue_type: str, message: str) -> Dict[str, Any]:
     """
@@ -95,7 +198,7 @@ async def create_support_ticket(user_id: str, issue_type: str, message: str) -> 
     """
     from app.common.utils import generate_id, now_utc
     from app.database import get_db
-    
+
     ticket_id = f"tkt_{generate_id()}"
     utc_now = now_utc()
     ticket = {
@@ -106,12 +209,12 @@ async def create_support_ticket(user_id: str, issue_type: str, message: str) -> 
         "status": "OPEN",
         "created_at": utc_now,
     }
-    
+
     db = get_db()
     if db is not None:
         # Create a copy to prevent inserting _id field into the returned dict
         await db["escalation_tickets"].insert_one(ticket.copy())
-    
+
     # Format UTC time to string for JSON serialization
     ticket_resp = ticket.copy()
     ticket_resp["created_at"] = utc_now.isoformat()

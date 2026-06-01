@@ -78,3 +78,19 @@ class DuplicateRequestException(AppException):
             status_code=409,
             details=details
         )
+
+
+class ForbiddenException(AppException):
+    """Exception raised when access is forbidden (HTTP 403)."""
+    def __init__(
+        self,
+        message: str = "Quyền truy cập bị từ chối",
+        error_code: str = "FORBIDDEN_ACCESS",
+        details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=403,
+            details=details
+        )

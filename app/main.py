@@ -11,7 +11,9 @@ from fastapi.exceptions import RequestValidationError
 from app.modules.chat.router import router as chat_router
 from app.modules.tools.router import router as tools_router
 from app.modules.documents.router import router as documents_router
+from app.modules.finance.router import router as finance_router
 from app.modules.rag.vector_store import VectorStoreService
+from app.modules.finance.repository import FinanceRepository
 
 # Configure logging
 logging.basicConfig(
@@ -30,6 +32,8 @@ async def lifespan(app: FastAPI):
             # Ensure Vector Search indexes exist on Atlas
             vector_store = VectorStoreService()
             await vector_store.ensure_vector_search_index()
+            # Ensure Finance collection indexes
+            await FinanceRepository.ensure_indexes()
     except Exception as e:
         logger.error(f"Startup database connection or index setup failed: {e}")
     yield
@@ -57,6 +61,7 @@ if settings.BACKEND_CORS_ORIGINS:
 app.include_router(chat_router)
 app.include_router(tools_router)
 app.include_router(documents_router, prefix=settings.API_V1_STR)
+app.include_router(finance_router, prefix=settings.API_V1_STR)
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)

@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any
+from typing import Dict, Any, cast
 from app.core.state import SupportAgentState
 from app.agents.injection_guard import check_injection
 from app.agents.intent_agent import run_intent_agent
@@ -16,7 +16,7 @@ async def injection_guard_node(state: SupportAgentState) -> Dict[str, Any]:
 async def intent_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_intent_agent(state)
+    return await run_intent_agent(cast(Dict[str, Any], state))
 
 async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
     """
@@ -36,7 +36,7 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
     # 1. BALANCE_INQUIRY → call check_balance
     if intent == "BALANCE_INQUIRY":
         from app.modules.tools.mock_wallet import check_balance
-        balance_data = check_balance(user_id)
+        balance_data = await check_balance(user_id)
         tool_calls.append({
             "tool_name": "check_balance",
             "arguments": {"user_id": user_id},
@@ -51,7 +51,7 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
         
         from app.modules.tools.mock_wallet import get_transaction_status
         if transaction_id:
-            txn_data = get_transaction_status(transaction_id)
+            txn_data = await get_transaction_status(transaction_id)
             tool_calls.append({
                 "tool_name": "get_transaction_status",
                 "arguments": {"transaction_id": transaction_id},
@@ -106,23 +106,23 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
 async def rag_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_rag_agent(state)
+    return await run_rag_agent(cast(Dict[str, Any], state))
 
 async def grounding_guard_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_grounding_guard(state)
+    return await run_grounding_guard(cast(Dict[str, Any], state))
 
 async def confidence_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_confidence_agent(state)
+    return await run_confidence_agent(cast(Dict[str, Any], state))
 
 async def escalation_agent_node(state: SupportAgentState) -> Dict[str, Any]:
-    return await run_escalation_agent(state)
+    return await run_escalation_agent(cast(Dict[str, Any], state))
 
 async def clarification_agent_node(state: SupportAgentState) -> Dict[str, Any]:
-    return await run_clarification_agent(state)
+    return await run_clarification_agent(cast(Dict[str, Any], state))
 
 async def final_answer_node(state: SupportAgentState) -> Dict[str, Any]:
     """

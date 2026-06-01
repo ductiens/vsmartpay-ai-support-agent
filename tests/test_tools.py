@@ -10,7 +10,7 @@ from app.database import get_db
 
 @pytest.mark.asyncio
 async def test_check_balance():
-    res = check_balance("user_001")
+    res = await check_balance("user_001")
     assert res is not None
     assert res["user_id"] == "user_001"
     assert res["balance"] == 2500000
@@ -30,7 +30,7 @@ async def test_get_fee_withdrawal():
 
 @pytest.mark.asyncio
 async def test_get_transaction_status():
-    res = get_transaction_status("txn_001")
+    res = await get_transaction_status("txn_001")
     assert res is not None
     assert res["transaction_id"] == "txn_001"
     assert res["status"] == "SUCCESS"
@@ -38,7 +38,7 @@ async def test_get_transaction_status():
 
 @pytest.mark.asyncio
 async def test_get_user_kyc_status():
-    status = get_user_kyc_status("user_001")
+    status = await get_user_kyc_status("user_001")
     assert status == "VERIFIED"
 
 @pytest.mark.asyncio

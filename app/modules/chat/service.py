@@ -78,7 +78,7 @@ class ChatService:
         # BALANCE_INQUIRY → call check_balance
         if intent_info.intent == "BALANCE_INQUIRY":
             from app.modules.tools.mock_wallet import check_balance
-            balance_data = check_balance(request.user_id)
+            balance_data = await check_balance(request.user_id)
             tool_calls.append({
                 "tool_name": "check_balance",
                 "arguments": {"user_id": request.user_id},
@@ -93,7 +93,7 @@ class ChatService:
             
             from app.modules.tools.mock_wallet import get_transaction_status
             if transaction_id:
-                txn_data = get_transaction_status(transaction_id)
+                txn_data = await get_transaction_status(transaction_id)
                 if txn_data:
                     transaction_status = txn_data.get("status")
                 tool_calls.append({
