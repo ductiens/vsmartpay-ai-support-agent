@@ -8,6 +8,55 @@
 
 Hệ thống cung cấp cơ chế xử lý song song hai luồng xử lý hội thoại (Legacy RAG Pipeline & Multi-Agent LangGraph Orchestration), dễ dàng bật tắt qua cấu hình `USE_LANGGRAPH`.
 
+### Luồng hoạt động của dự án
+```mermaid
+flowchart TD
+    A["User gửi câu hỏi"] --> B["POST /chat"]
+    B --> C["ChatService"]
+
+    C --> D["Lưu user message vào MongoDB"]
+    D --> E["Phân loại intent"]
+
+    E --> F{"Intent là loại nào?"}
+
+    F -- "Hỏi số dư" --> G["Gọi check_balance"]
+    F -- "Hỏi trạng thái giao dịch" --> H["Gọi get_transaction_status"]
+    F -- "Hỏi phí" --> I["Gọi get_fee"]
+
+    F -- "FAQ / hạn mức / KYC / chính sách" --> J["Truy xuất tài liệu RAG"]
+
+    F -- "Mất tiền / lừa đảo / hack / OTP" --> K["Đánh dấu rủi ro cao"]
+    F -- "Muốn gặp CSKH" --> K
+
+    G --> L["Kết quả tool ví"]
+    H --> L
+    I --> L
+
+    J --> M["Context từ tài liệu"]
+    K --> N["Thông tin escalation"]
+
+    L --> O["Kiểm tra escalation"]
+    M --> O
+    N --> O
+
+    O --> P{"Có cần chuyển CSKH không?"}
+
+    P -- "Có" --> Q["Tạo support ticket"]
+    P -- "Không" --> R["Không tạo ticket"]
+
+    Q --> S["Thông tin ticket"]
+    R --> T["Không có thông tin ticket"]
+
+    L --> U["Chuẩn bị nội dung trả lời"]
+    M --> U
+    S --> U
+    T --> U
+
+    U --> V["LLM hoặc fallback answer"]
+    V --> W["Lưu assistant message vào MongoDB"]
+    W --> X["Trả ChatResponse"]
+```
+
 ### Luồng xử lý đa tác nhân (LangGraph Multi-Agent Flow)
 
 Dưới đây là sơ đồ luồng điều phối trạng thái hội thoại qua các Agent:

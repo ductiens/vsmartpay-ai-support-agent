@@ -56,7 +56,7 @@ if settings.BACKEND_CORS_ORIGINS:
 # Include Routers
 app.include_router(chat_router)
 app.include_router(tools_router)
-app.include_router(documents_router, prefix="/api/v1")
+app.include_router(documents_router, prefix=settings.API_V1_STR)
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)
