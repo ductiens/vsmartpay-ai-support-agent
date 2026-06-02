@@ -93,3 +93,33 @@ class TicketsRepository:
             {"session_id": session_id, "status": "OPEN"},
             {"$set": {"status": status, "assigned_agent_id": assigned_agent_id}}
         )
+
+    @staticmethod
+    async def update_ticket_status(ticket_id: str, status: str) -> None:
+        """
+        Update the status of a support ticket.
+        """
+        db = TicketsRepository._get_active_db()
+        await db["support_tickets"].update_one(
+            {"ticket_id": ticket_id},
+            {"$set": {"status": status}}
+        )
+        await db["escalation_tickets"].update_one(
+            {"ticket_id": ticket_id},
+            {"$set": {"status": status}}
+        )
+
+    @staticmethod
+    async def assign_ticket_agent(ticket_id: str, assigned_agent_id: str) -> None:
+        """
+        Assign a support ticket to a CSKH agent.
+        """
+        db = TicketsRepository._get_active_db()
+        await db["support_tickets"].update_one(
+            {"ticket_id": ticket_id},
+            {"$set": {"assigned_agent_id": assigned_agent_id}}
+        )
+        await db["escalation_tickets"].update_one(
+            {"ticket_id": ticket_id},
+            {"$set": {"assigned_agent_id": assigned_agent_id}}
+        )

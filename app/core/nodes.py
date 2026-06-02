@@ -43,7 +43,7 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
     
     # 1. BALANCE_INQUIRY → call check_balance
     if intent == "BALANCE_INQUIRY":
-        from app.modules.tools.mock_wallet import check_balance
+        from app.modules.tools.financial_tools import check_balance
         balance_data = await check_balance(user_id)
         tool_calls.append({
             "tool_name": "check_balance",
@@ -51,15 +51,25 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
             "result": balance_data
         })
         
-    # 2. TRANSACTION_STATUS → extract transaction_id, call get_transaction_status
+    # 2. TRANSACTION_HISTORY → call get_transaction_history
+    elif intent == "TRANSACTION_HISTORY":
+        from app.modules.tools.financial_tools import get_transaction_history
+        txn_history = await get_transaction_history(user_id)
+        tool_calls.append({
+            "tool_name": "get_transaction_history",
+            "arguments": {"user_id": user_id},
+            "result": txn_history
+        })
+
+    # 3. TRANSACTION_STATUS → extract transaction_id, call get_transaction_status
     elif intent == "TRANSACTION_STATUS":
-        # Extract transaction ID (e.g. txn_001, tx_001) using regex
-        match = re.search(r"\b(txn_\d+|tx_\d+)\b", user_message, re.IGNORECASE)
+        # Extract transaction ID (e.g. txn_001, txn_uuid_v7) using regex
+        match = re.search(r"\b(txn_[0-9a-fA-F\-]+|tx_[0-9a-fA-F\-]+)\b", user_message, re.IGNORECASE)
         transaction_id = match.group(1) if match else None
         
-        from app.modules.tools.mock_wallet import get_transaction_status
+        from app.modules.tools.financial_tools import get_transaction_status
         if transaction_id:
-            txn_data = await get_transaction_status(transaction_id)
+            txn_data = await get_transaction_status(transaction_id, user_id)
             tool_calls.append({
                 "tool_name": "get_transaction_status",
                 "arguments": {"transaction_id": transaction_id},
@@ -72,7 +82,7 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
                 "result": {"error": "Không tìm thấy mã giao dịch trong tin nhắn."}
             })
             
-    # 3. FEE_INQUIRY → extract transaction_type & amount, call get_fee
+    # 4. FEE_INQUIRY → extract transaction_type & amount, call get_fee
     elif intent == "FEE_INQUIRY":
         msg_lower = user_message.lower()
         transaction_type = "TRANSFER"
@@ -99,7 +109,7 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
                         amount = val
                         break
                         
-        from app.modules.tools.mock_wallet import get_fee
+        from app.modules.tools.financial_tools import get_fee
         fee_data = get_fee(transaction_type, amount)
         tool_calls.append({
             "tool_name": "get_fee",

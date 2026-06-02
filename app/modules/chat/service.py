@@ -86,10 +86,11 @@ class ChatService:
         balance_data = None
         txn_data = None
         fee_data = None
+        txn_history = None
         
         # BALANCE_INQUIRY → call check_balance
         if intent_info.intent == "BALANCE_INQUIRY":
-            from app.modules.tools.mock_wallet import check_balance
+            from app.modules.tools.financial_tools import check_balance
             balance_data = await check_balance(user_id)
             tool_calls.append({
                 "tool_name": "check_balance",
@@ -97,15 +98,25 @@ class ChatService:
                 "result": balance_data
             })
             
+        # TRANSACTION_HISTORY → call get_transaction_history
+        elif intent_info.intent == "TRANSACTION_HISTORY":
+            from app.modules.tools.financial_tools import get_transaction_history
+            txn_history = await get_transaction_history(user_id)
+            tool_calls.append({
+                "tool_name": "get_transaction_history",
+                "arguments": {"user_id": user_id},
+                "result": txn_history
+            })
+
         # TRANSACTION_STATUS → extract transaction_id, call get_transaction_status
         elif intent_info.intent == "TRANSACTION_STATUS":
-            # Extract transaction ID (e.g. txn_001, tx_001) using regex
-            match = re.search(r"\b(txn_\d+|tx_\d+)\b", request.message, re.IGNORECASE)
+            # Extract transaction ID (e.g. txn_001, txn_uuid_v7) using regex
+            match = re.search(r"\b(txn_[0-9a-fA-F\-]+|tx_[0-9a-fA-F\-]+)\b", request.message, re.IGNORECASE)
             transaction_id = match.group(1) if match else None
             
-            from app.modules.tools.mock_wallet import get_transaction_status
+            from app.modules.tools.financial_tools import get_transaction_status
             if transaction_id:
-                txn_data = await get_transaction_status(transaction_id)
+                txn_data = await get_transaction_status(transaction_id, user_id)
                 if txn_data:
                     transaction_status = txn_data.get("status")
                 tool_calls.append({
@@ -148,7 +159,7 @@ class ChatService:
                             amount = val
                             break
                             
-            from app.modules.tools.mock_wallet import get_fee
+            from app.modules.tools.financial_tools import get_fee
             fee_data = get_fee(transaction_type, amount)
             tool_calls.append({
                 "tool_name": "get_fee",
@@ -183,7 +194,7 @@ class ChatService:
             elif intent_info.intent == "REFUND_OR_DISPUTE":
                 issue_type = "REFUND"
                 
-            from app.modules.tools.mock_wallet import create_support_ticket
+            from app.modules.tools.financial_tools import create_support_ticket
             ticket_data = await create_support_ticket(
                 user_id=user_id,
                 issue_type=issue_type,
@@ -240,6 +251,24 @@ class ChatService:
             # Primary robust local fallback answers based on tool results and escalation
             if intent_info.intent == "BALANCE_INQUIRY" and balance_data:
                 answer = f"Chào bạn, số dư khả dụng hiện tại trong tài khoản ví VSmartPay của bạn là {balance_data.get('balance', 0):,} {balance_data.get('currency', 'VND')}."
+            elif intent_info.intent == "TRANSACTION_HISTORY":
+                if txn_history and isinstance(txn_history, list) and len(txn_history) > 0:
+                    answer = "Chào bạn, đây là danh sách các giao dịch gần đây của bạn:\n"
+                    for t in txn_history:
+                        type_vi = {
+                            "TRANSFER": "Chuyển tiền",
+                            "WITHDRAWAL": "Rút tiền",
+                            "DEPOSIT": "Nạp tiền"
+                        }.get(t.get("type", "TRANSFER").upper(), t.get("type"))
+                        status_vi = {
+                            "SUCCESS": "Thành công",
+                            "PENDING": "Đang chờ xử lý",
+                            "FAILED": "Thất bại",
+                            "REFUNDED": "Đã hoàn tiền"
+                        }.get(t.get("status", "SUCCESS").upper(), t.get("status"))
+                        answer += f"- Giao dịch **{t.get('transaction_id')}**: {type_vi} số tiền {t.get('amount', 0):,} VND ({status_vi}).\n"
+                else:
+                    answer = "Chào bạn, bạn chưa thực hiện giao dịch nào gần đây trên hệ thống ví VSmartPay."
             elif intent_info.intent == "TRANSACTION_STATUS":
                 if txn_data and "error" not in txn_data:
                     status_vi = {
@@ -252,6 +281,8 @@ class ChatService:
                     answer = f"Chào bạn, mã giao dịch {transaction_id} của bạn có trạng thái là: **{status_vi}**. Số tiền giao dịch: {txn_data.get('amount', 0):,} {txn_data.get('currency', 'VND')}."
                     if txn_data["status"] in ["FAILED", "PENDING"]:
                         answer += f" Vì giao dịch đang có trạng thái {status_vi}, hệ thống đã tự động tạo yêu cầu chuyển giao cho bộ phận CSKH để hỗ trợ bạn ngay lập tức."
+                elif txn_data and "error" in txn_data:
+                    answer = f"Chào bạn, {txn_data['error']}"
                 else:
                     answer = f"Chào bạn, hệ thống ví không tìm thấy thông tin cho mã giao dịch {transaction_id or 'đã nhập'}. Bạn vui lòng kiểm tra chính xác mã giao dịch."
             elif intent_info.intent == "FEE_INQUIRY" and fee_data:

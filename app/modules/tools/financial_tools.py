@@ -8,7 +8,7 @@ if the database is not connected or data is not found.
 import json
 import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
@@ -34,24 +34,16 @@ class MockWalletClient:
         for w in wallets:
             if w.get("user_id") == user_id:
                 return w
-        # Fallback default mock data if files do not exist or user not found
-        return {"user_id": user_id, "balance": 1500000, "currency": "VND", "status": "ACTIVE"}
+        # Safe production-ready check: return None if user not found in mock files
+        return None
 
     def get_transaction_by_id(self, transaction_id: str) -> Optional[Dict[str, Any]]:
         transactions = self._read_json("transactions.json")
         for t in transactions:
             if t.get("transaction_id") == transaction_id:
                 return t
-        # Fallback default mock data
-        return {
-            "transaction_id": transaction_id,
-            "user_id": "usr_test_default",
-            "amount": 50000,
-            "type": "TRANSFER",
-            "status": "SUCCESS",
-            "timestamp": "2026-05-28T09:00:00Z",
-            "currency": "VND"
-        }
+        # Safe check: return None
+        return None
 
 
 # Standalone fallback client for JSON file reads
@@ -106,9 +98,10 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
     }
 
 
-async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]]:
+async def get_transaction_status(transaction_id: str, user_id: str) -> Optional[Dict[str, Any]]:
     """
-    get_transaction_status(transaction_id) - Query MongoDB transactions collection via FinanceService repository.
+    get_transaction_status(transaction_id, user_id) - Query MongoDB transactions collection via FinanceService repository.
+    Verifies that the transaction belongs to the calling user_id (sender or recipient).
     Falls back to reading transactions.json if DB is not available.
     """
     try:
@@ -116,6 +109,10 @@ async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]
         finance_service = FinanceService()
         txn = await finance_service.repo.get_transaction_by_id(transaction_id)
         if txn is not None:
+            # Security check: transaction ownership
+            if txn.get("user_id") != user_id and txn.get("recipient_user_id") != user_id:
+                return {"error": "Bạn không có quyền xem thông tin giao dịch này."}
+                
             return {
                 "transaction_id": txn["transaction_id"],
                 "user_id": txn.get("user_id", "unknown"),
@@ -128,15 +125,18 @@ async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]
     except Exception as e:
         logger.warning(f"get_transaction_status via FinanceService failed, falling back to JSON: {e}")
 
-    # Fallback to JSON file
+    # Fallback to JSON file with security check
     transactions = _client._read_json("transactions.json")
     for t in transactions:
         if t.get("transaction_id") == transaction_id:
+            if t.get("user_id") != user_id and t.get("recipient_user_id") != user_id:
+                return {"error": "Bạn không có quyền xem thông tin giao dịch này."}
             return t
+            
     return None
 
 
-async def get_transaction_history(user_id: str, limit: int = 10) -> list:
+async def get_transaction_history(user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
     get_transaction_history(user_id) - Query via FinanceService.
     Falls back to reading transactions.json if DB is not available.

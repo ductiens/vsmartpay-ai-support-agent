@@ -1,5 +1,5 @@
 import pytest
-from app.modules.tools.mock_wallet import (
+from app.modules.tools.financial_tools import (
     check_balance,
     get_fee,
     get_transaction_status,
@@ -30,7 +30,7 @@ async def test_get_fee_withdrawal():
 
 @pytest.mark.asyncio
 async def test_get_transaction_status():
-    res = await get_transaction_status("txn_001")
+    res = await get_transaction_status("txn_001", "user_001")
     assert res is not None
     assert res["transaction_id"] == "txn_001"
     assert res["status"] == "SUCCESS"

@@ -26,8 +26,12 @@ class IntentClassifier:
         if any(w in msg_lower for w in ["hạn mức", "tối đa", "tối thiểu", "limit"]):
             return IntentClassification(intent=IntentTaxonomy.LIMIT_INQUIRY.value, confidence=0.9)
             
-        # 4. Transaction Status
-        if any(w in msg_lower for w in ["giao dịch", "mã giao dịch", "trạng thái", "lịch sử"]):
+        # 4. Transaction History
+        if any(w in msg_lower for w in ["lịch sử", "gần đây", "history"]):
+            return IntentClassification(intent=IntentTaxonomy.TRANSACTION_HISTORY.value, confidence=0.95)
+            
+        # 4b. Transaction Status
+        if any(w in msg_lower for w in ["giao dịch", "mã giao dịch", "trạng thái"]):
             return IntentClassification(intent=IntentTaxonomy.TRANSACTION_STATUS.value, confidence=0.95)
             
         # 5. Balance Inquiry

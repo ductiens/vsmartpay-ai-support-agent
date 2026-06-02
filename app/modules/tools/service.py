@@ -1,5 +1,5 @@
 from typing import Optional, Any
-from app.modules.tools.mock_wallet import MockWalletClient
+from app.modules.tools.financial_tools import MockWalletClient
 from app.modules.tools.schema import BalanceResponse, TransactionDetail, FeesResponse
 
 class ToolService:
@@ -7,7 +7,7 @@ class ToolService:
         self.wallet_client = MockWalletClient()
 
     async def get_balance(self, user_id: str) -> BalanceResponse:
-        from app.modules.tools.mock_wallet import check_balance
+        from app.modules.tools.financial_tools import check_balance
         data = await check_balance(user_id)
         if data is None:
             from app.common.exceptions import NotFoundException
@@ -18,16 +18,15 @@ class ToolService:
             currency=data.get("currency", "VND")
         )
 
-    async def get_transaction(self, transaction_id: str) -> TransactionDetail:
-        from app.modules.tools.mock_wallet import get_transaction_status
-        data = await get_transaction_status(transaction_id)
+    async def get_transaction(self, transaction_id: str, user_id: str = "user_001") -> TransactionDetail:
+        from app.modules.tools.financial_tools import get_transaction_status
+        data = await get_transaction_status(transaction_id, user_id)
         if data is None:
-            # Fallback to MockWalletClient default mock data for backward compatibility
             data = self.wallet_client.get_transaction_by_id(transaction_id)
             
-        if data is None:
+        if data is None or "error" in data:
             from app.common.exceptions import NotFoundException
-            raise NotFoundException(f"Transaction with ID {transaction_id} not found")
+            raise NotFoundException(f"Transaction with ID {transaction_id} not found or access denied")
             
         return TransactionDetail(
             transaction_id=data["transaction_id"],
@@ -40,7 +39,7 @@ class ToolService:
         )
 
     async def get_fees(self, transaction_type: Optional[str] = None, amount: Optional[int] = None) -> Any:
-        from app.modules.tools.mock_wallet import get_fee
+        from app.modules.tools.financial_tools import get_fee
         if transaction_type is not None and amount is not None:
             # Dynamic fee calculation for a specific transaction type and amount
             return get_fee(transaction_type, amount)

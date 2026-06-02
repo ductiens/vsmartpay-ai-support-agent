@@ -1,5 +1,5 @@
 from typing import Dict, Any
-from app.modules.tools.mock_wallet import create_support_ticket
+from app.modules.tools.financial_tools import create_support_ticket
 from app.modules.escalation.service import EscalationService
 
 async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:

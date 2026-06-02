@@ -49,6 +49,16 @@ class ChatSessionResponse(BaseModel):
 class AdminReplyRequest(BaseModel):
     message: str
 
+class AssignAgentRequest(BaseModel):
+    assigned_agent_id: Optional[str] = None
+
+class UpdateTicketStatusRequest(BaseModel):
+    status: str
+
+class AdminChatMessageRequest(BaseModel):
+    message: str
+    sender: str = "HUMAN_AGENT"
+
 class ChatMessageResponse(BaseModel):
     role: str
     content: str

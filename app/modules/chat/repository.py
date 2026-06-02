@@ -62,7 +62,8 @@ class ChatRepository:
         role: str, 
         content: str, 
         intent: Optional[str] = None, 
-        sources: Optional[List[Dict[str, Any]]] = None
+        sources: Optional[List[Dict[str, Any]]] = None,
+        sender: Optional[str] = None
     ):
         """Append a new message log (user or assistant) to chat_messages collection."""
         col = self.messages_collection
@@ -74,7 +75,8 @@ class ChatRepository:
                 "content": content,
                 "timestamp": utc_now,
                 "intent": intent,
-                "sources": sources or []
+                "sources": sources or [],
+                "sender": sender
             }
             await col.insert_one(message_doc)
 
