@@ -55,10 +55,13 @@ async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     priority = esc_info.priority or "MEDIUM"
     
     # 3. Call tool to create support ticket in MongoDB
+    session_id = state.get("session_id")
     ticket_data = await create_support_ticket(
         user_id=user_id,
         issue_type=issue_type,
-        message=user_message
+        message=user_message,
+        session_id=session_id,
+        priority=priority
     )
     
     # Save the tool call in tool_calls list
@@ -67,7 +70,9 @@ async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         "arguments": {
             "user_id": user_id,
             "issue_type": issue_type,
-            "message": user_message
+            "message": user_message,
+            "session_id": session_id,
+            "priority": priority
         },
         "result": ticket_data
     })

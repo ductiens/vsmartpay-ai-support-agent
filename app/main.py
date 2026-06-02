@@ -12,8 +12,10 @@ from app.modules.chat.router import router as chat_router
 from app.modules.tools.router import router as tools_router
 from app.modules.documents.router import router as documents_router
 from app.modules.finance.router import router as finance_router
+from app.modules.tickets.router import router as tickets_router
 from app.modules.rag.vector_store import VectorStoreService
 from app.modules.finance.repository import FinanceRepository
+from app.modules.tickets.repository import TicketsRepository
 
 # Configure logging
 logging.basicConfig(
@@ -34,12 +36,14 @@ async def lifespan(app: FastAPI):
             await vector_store.ensure_vector_search_index()
             # Ensure Finance collection indexes
             await FinanceRepository.ensure_indexes()
+            # Ensure Tickets collection indexes
+            await TicketsRepository.ensure_indexes()
     except Exception as e:
         logger.error(f"Startup database connection or index setup failed: {e}")
     yield
     # Shutdown: Close database connection
     await db_manager.close()
-
+ 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
@@ -62,6 +66,7 @@ app.include_router(chat_router)
 app.include_router(tools_router)
 app.include_router(documents_router, prefix=settings.API_V1_STR)
 app.include_router(finance_router, prefix=settings.API_V1_STR)
+app.include_router(tickets_router, prefix=settings.API_V1_STR)
 
 # Global Exception Handlers for Unified API Responses
 @app.exception_handler(AppException)

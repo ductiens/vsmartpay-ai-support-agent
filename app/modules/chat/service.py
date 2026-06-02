@@ -159,7 +159,7 @@ class ChatService:
         
         required = esc_info.required
         reason = esc_info.reason
-        priority = esc_info.priority
+        priority = esc_info.priority or "MEDIUM"
         
         # If escalation is required, call create_support_ticket and save ticket to MongoDB
         if required:
@@ -178,7 +178,9 @@ class ChatService:
             ticket_data = await create_support_ticket(
                 user_id=user_id,
                 issue_type=issue_type,
-                message=request.message
+                message=request.message,
+                session_id=request.session_id,
+                priority=priority
             )
             
             tool_calls.append({
@@ -186,7 +188,9 @@ class ChatService:
                 "arguments": {
                     "user_id": user_id,
                     "issue_type": issue_type,
-                    "message": request.message
+                    "message": request.message,
+                    "session_id": request.session_id,
+                    "priority": priority
                 },
                 "result": ticket_data
             })

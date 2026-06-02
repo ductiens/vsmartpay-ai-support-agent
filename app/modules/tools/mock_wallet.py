@@ -196,9 +196,18 @@ async def get_user_kyc_status(user_id: str) -> str:
     return "UNVERIFIED"
 
 
-async def create_support_ticket(user_id: str, issue_type: str, message: str) -> Dict[str, Any]:
+async def create_support_ticket(
+    user_id: str,
+    issue_type: str,
+    message: str,
+    session_id: Optional[str] = None,
+    priority: str = "MEDIUM",
+    summary: Optional[str] = None,
+    assigned_agent_id: Optional[str] = None
+) -> Dict[str, Any]:
     """
-    create_support_ticket(user_id, issue_type, message) - Creates support ticket and saves it to MongoDB escalation_tickets.
+    create_support_ticket - Creates support ticket and saves it to MongoDB support_tickets.
+    Also writes a copy to escalation_tickets for backward compatibility.
     """
     from app.common.utils import generate_id, now_utc
     from app.database import get_db
@@ -207,16 +216,21 @@ async def create_support_ticket(user_id: str, issue_type: str, message: str) -> 
     utc_now = now_utc()
     ticket = {
         "ticket_id": ticket_id,
+        "session_id": session_id or "",
         "user_id": user_id,
+        "priority": priority,
+        "status": "OPEN",
+        "summary": summary or f"Yêu cầu hỗ trợ về {issue_type}: {message[:100]}...",
+        "assigned_agent_id": assigned_agent_id,
         "issue_type": issue_type,
         "message": message,
-        "status": "OPEN",
         "created_at": utc_now,
     }
 
     db = get_db()
     if db is not None:
         # Create a copy to prevent inserting _id field into the returned dict
+        await db["support_tickets"].insert_one(ticket.copy())
         await db["escalation_tickets"].insert_one(ticket.copy())
 
     # Format UTC time to string for JSON serialization
