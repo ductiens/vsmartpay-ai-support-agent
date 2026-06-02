@@ -44,6 +44,10 @@ class ChatSessionResponse(BaseModel):
     user_id: str
     created_at: datetime
     updated_at: datetime
+    status: str = "BOT_ACTIVE"
+
+class AdminReplyRequest(BaseModel):
+    message: str
 
 class ChatMessageResponse(BaseModel):
     role: str

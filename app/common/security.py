@@ -70,3 +70,18 @@ async def get_current_user(
         )
         
     return UserResponse(**user)
+
+
+async def get_current_admin(
+    current_user: UserResponse = Depends(get_current_user)
+) -> UserResponse:
+    """
+    FastAPI dependency to authorize requests.
+    Ensures that the current user has the 'admin' or 'cskh' role.
+    """
+    if getattr(current_user, "role", "user") not in ["admin", "cskh"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập chức năng này. Chỉ dành cho Admin hoặc CSKH."
+        )
+    return current_user

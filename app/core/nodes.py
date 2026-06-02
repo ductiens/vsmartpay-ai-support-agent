@@ -11,12 +11,20 @@ from app.agents.clarification_agent import run_clarification_agent
 
 # Node Wrappers
 async def injection_guard_node(state: SupportAgentState) -> Dict[str, Any]:
-    return check_injection(state)
+    res = check_injection(state)
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("injection_guard")
+    res["nodes_executed"] = nodes
+    return res
 
 async def intent_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_intent_agent(cast(Dict[str, Any], state))
+    res = await run_intent_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("intent_agent")
+    res["nodes_executed"] = nodes
+    return res
 
 async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
     """
@@ -99,36 +107,62 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
             "result": fee_data
         })
         
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("tool_router")
     return {
-        "tool_calls": tool_calls
+        "tool_calls": tool_calls,
+        "nodes_executed": nodes
     }
 
 async def rag_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_rag_agent(cast(Dict[str, Any], state))
+    res = await run_rag_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("rag_agent")
+    res["nodes_executed"] = nodes
+    return res
 
 async def grounding_guard_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_grounding_guard(cast(Dict[str, Any], state))
+    res = await run_grounding_guard(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("grounding_guard")
+    res["nodes_executed"] = nodes
+    return res
 
 async def confidence_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
         return {}
-    return await run_confidence_agent(cast(Dict[str, Any], state))
+    res = await run_confidence_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("confidence_agent")
+    res["nodes_executed"] = nodes
+    return res
 
 async def escalation_agent_node(state: SupportAgentState) -> Dict[str, Any]:
-    return await run_escalation_agent(cast(Dict[str, Any], state))
+    res = await run_escalation_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("escalation_agent")
+    res["nodes_executed"] = nodes
+    return res
 
 async def clarification_agent_node(state: SupportAgentState) -> Dict[str, Any]:
-    return await run_clarification_agent(cast(Dict[str, Any], state))
+    res = await run_clarification_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("clarification_agent")
+    res["nodes_executed"] = nodes
+    return res
 
 async def final_answer_node(state: SupportAgentState) -> Dict[str, Any]:
     """
     Wrap up node: simply assign draft_answer to final_answer.
     """
     draft_answer = state.get("draft_answer", "")
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("final_answer_node")
     return {
-        "final_answer": draft_answer
+        "final_answer": draft_answer,
+        "nodes_executed": nodes
     }

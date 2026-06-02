@@ -34,11 +34,27 @@ class ChatRepository:
                 {
                     "$set": set_dict,
                     "$setOnInsert": {
-                        "created_at": utc_now
+                        "created_at": utc_now,
+                        "status": "BOT_ACTIVE"
                     }
                 },
                 upsert=True
             )
+
+    async def update_session_status(self, session_id: str, status: str):
+        """Cập nhật trạng thái của phiên chat."""
+        col = self.sessions_collection
+        if col is not None:
+            await col.update_one(
+                {"session_id": session_id},
+                {"$set": {"status": status, "updated_at": now_utc()}}
+            )
+
+    async def log_agent_trace(self, trace_data: Dict[str, Any]):
+        """Lưu vết chạy chi tiết của AI Agent (tracing/logging) vào MongoDB."""
+        db = get_db()
+        if db is not None:
+            await db["agent_traces"].insert_one(trace_data)
 
     async def log_message(
         self, 
@@ -90,7 +106,8 @@ class ChatRepository:
                     "session_id": doc.get("session_id"),
                     "user_id": doc.get("user_id"),
                     "created_at": doc.get("created_at"),
-                    "updated_at": doc.get("updated_at")
+                    "updated_at": doc.get("updated_at"),
+                    "status": doc.get("status", "BOT_ACTIVE")
                 })
             return sessions
         return []
@@ -105,6 +122,7 @@ class ChatRepository:
                     "session_id": doc.get("session_id"),
                     "user_id": doc.get("user_id"),
                     "created_at": doc.get("created_at"),
-                    "updated_at": doc.get("updated_at")
+                    "updated_at": doc.get("updated_at"),
+                    "status": doc.get("status", "BOT_ACTIVE")
                 }
         return None

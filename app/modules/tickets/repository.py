@@ -61,3 +61,35 @@ class TicketsRepository:
             {"_id": 0}
         ).sort("created_at", -1)
         return await cursor.to_list(length=100)
+
+    @staticmethod
+    async def get_all_tickets(status: Optional[str] = None, priority: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Find all support tickets in the system, sorted by created_at descending.
+        Supports filtering by status and priority.
+        """
+        db = TicketsRepository._get_active_db()
+        query = {}
+        if status:
+            query["status"] = status
+        if priority:
+            query["priority"] = priority
+            
+        cursor = db["support_tickets"].find(query, {"_id": 0}).sort("created_at", -1)
+        return await cursor.to_list(length=200)
+
+    @staticmethod
+    async def update_tickets_status_by_session_id(session_id: str, status: str, assigned_agent_id: str) -> None:
+        """
+        Update status and assigned_agent_id of all OPEN support tickets associated with the session_id.
+        """
+        db = TicketsRepository._get_active_db()
+        await db["support_tickets"].update_many(
+            {"session_id": session_id, "status": "OPEN"},
+            {"$set": {"status": status, "assigned_agent_id": assigned_agent_id}}
+        )
+        # Also update escalation_tickets for complete synchronization
+        await db["escalation_tickets"].update_many(
+            {"session_id": session_id, "status": "OPEN"},
+            {"$set": {"status": status, "assigned_agent_id": assigned_agent_id}}
+        )

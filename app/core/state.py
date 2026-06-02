@@ -27,3 +27,4 @@ class SupportAgentState(TypedDict, total=False):
     kb_type: str
     agent_scope: str
     retrieval_filter: Dict[str, Any]
+    nodes_executed: List[str]

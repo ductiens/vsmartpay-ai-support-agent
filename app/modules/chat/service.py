@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import logging
+import time
 from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.modules.chat.schema import ChatRequest, ChatResponse, ChatSource, EscalationDetail
@@ -9,6 +11,9 @@ from app.modules.intents.classifier import IntentClassifier
 from app.modules.escalation.service import EscalationService
 from app.modules.rag.retriever import RAGRetriever
 from app.modules.chat.chain import ChatAnswerChain
+from app.common.utils import generate_id, now_utc
+
+logger = logging.getLogger(__name__)
 
 class ChatService:
     def __init__(self):
@@ -26,8 +31,12 @@ class ChatService:
         Runs through LangGraph multi-agent orchestration when settings.USE_LANGGRAPH=True.
         Falls back to the legacy ChatService pipeline when settings.USE_LANGGRAPH=False.
         """
+        start_time = time.time()
+        request_id = f"req_{generate_id()}"
+
         if settings.USE_LANGGRAPH:
             from app.core.graph import execute_graph
+            # execute_graph handles its own tracing and logging
             return await execute_graph(request)
 
         user_id = request.user_id or ""
@@ -194,6 +203,9 @@ class ChatService:
                 },
                 "result": ticket_data
             })
+            
+            # Transition chat session status to WAITING_HUMAN
+            await self.repository.update_session_status(request.session_id, "WAITING_HUMAN")
 
         # Step 6: Build grounded prompt
         context_str = "\n\n".join(context_parts) if context_parts else "Không tìm thấy thông tin phù hợp trong tài liệu hướng dẫn."
@@ -210,7 +222,7 @@ class ChatService:
             "Hãy trả lời câu hỏi của khách hàng bằng tiếng Việt lịch sự, thân thiện và tuân thủ các quy tắc nghiêm ngặt sau:\n"
             "1. CHỈ TRẢ LỜI dựa trên các thông tin được cung cấp trong phần 'Ngữ cảnh tài liệu' và 'Kết quả từ Hệ thống Ví giả lập' dưới đây. Tuyệt đối không tự suy diễn hoặc bịa đặt các thông số hạn mức, phần trăm hay biểu phí nếu tài liệu không đề cập.\n"
             "2. TUYỆT ĐỐI KHÔNG YÊU CẦU khách hàng cung cấp các thông tin nhạy cảm bảo mật như mã OTP, mật khẩu tài khoản đăng nhập hay số thẻ ngân hàng đầy đủ.\n"
-            "3. Nếu thông tin trong tài liệu và hệ thống ví giả lập không đủ để trả lời câu hỏi, hoặc cần chuyển giao cho bộ phận CSKH, hãy thông báo rõ ràng rằng yêu cầu đã được ghi nhận hỗ trợ trực tiếp.\n"
+            "3. Nếu thông tin trong tài liệu và hệ thống ví giải lập không đủ để trả lời câu hỏi, hoặc cần chuyển giao cho bộ phận CSKH, hãy thông báo rõ ràng rằng yêu cầu đã được ghi nhận hỗ trợ trực tiếp.\n"
         )
         
         user_prompt = (
@@ -279,6 +291,38 @@ class ChatService:
             content=answer,
             intent=intent_info.intent,
             sources=logged_sources
+        )
+
+        # Logging & Tracing
+        latency_ms = (time.time() - start_time) * 1000
+        trace_chunks = [
+            {
+                "doc_id": c.metadata.get("source", "unknown"),
+                "chunk_id": c.id,
+                "title": c.metadata.get("category", "Tài liệu VSmartPay") + f" - {c.metadata.get('source', 'unknown')}",
+                "score": float(c.score)
+            }
+            for c in retrieved_chunks
+        ]
+        trace_doc = {
+            "request_id": request_id,
+            "session_id": request.session_id,
+            "user_id": user_id,
+            "user_message": request.message,
+            "intent": intent_info.intent,
+            "confidence": intent_info.confidence,
+            "tool_calls": tool_calls,
+            "retrieved_chunks": trace_chunks,
+            "latency_ms": latency_ms,
+            "timestamp": now_utc()
+        }
+        await self.repository.log_agent_trace(trace_doc)
+
+        logger.info(
+            f"[AGENT TRACE] request_id={request_id} | session_id={request.session_id} | "
+            f"intent={intent_info.intent} (conf={intent_info.confidence:.2f}) | "
+            f"tools_called={[tc['tool_name'] for tc in tool_calls]} | "
+            f"chunks_retrieved={len(retrieved_chunks)} | latency={latency_ms:.1f}ms"
         )
 
         return ChatResponse(

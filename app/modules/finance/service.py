@@ -73,11 +73,13 @@ class FinanceService:
         user_id = f"usr_{generate_id()}"
         hashed_pw = hash_password(request.password)
 
+        role_val = request.role or "user"
         user_doc = {
             "user_id": user_id,
             "full_name": request.full_name,
             "phone": request.phone,
             "email": request.email,
+            "role": role_val,
             "hashed_password": hashed_pw,
             "kyc_status": "UNVERIFIED",
             "created_at": utc_now,
@@ -92,6 +94,7 @@ class FinanceService:
             full_name=request.full_name,
             phone=request.phone,
             email=request.email,
+            role=role_val,
             kyc_status="UNVERIFIED",
             created_at=utc_now,
         )

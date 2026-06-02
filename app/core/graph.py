@@ -1,3 +1,5 @@
+import time
+import logging
 from typing import Dict, Any, Literal
 from langgraph.graph import StateGraph, END
 
@@ -15,6 +17,9 @@ from app.core.nodes import (
 )
 from app.modules.chat.schema import ChatRequest, ChatResponse, ChatSource, EscalationDetail
 from app.modules.chat.repository import ChatRepository
+from app.common.utils import generate_id, now_utc
+
+logger = logging.getLogger(__name__)
 
 # 1. Define conditional routing logic
 def route_decision(state: SupportAgentState) -> Literal["escalation", "clarification", "final"]:
@@ -98,6 +103,8 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     Executes the compiled LangGraph workflow from user request to ChatResponse,
     logging the session and user/assistant messages in MongoDB.
     """
+    start_time = time.time()
+    request_id = f"req_{generate_id()}"
     repository = ChatRepository()
     
     # Step 1: Log session and user message in MongoDB
@@ -131,7 +138,8 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
         "doc_ids": [],
         "kb_type": "",
         "agent_scope": "",
-        "retrieval_filter": {}
+        "retrieval_filter": {},
+        "nodes_executed": []
     }
     
     # Step 3: Run compiled graph
@@ -143,6 +151,7 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     confidence = final_state.get("confidence", 0.5)
     sources_data = final_state.get("sources", [])
     tool_calls = final_state.get("tool_calls", [])
+    nodes_executed = final_state.get("nodes_executed", [])
     
     # Format sources into ChatSource list
     sources = [
@@ -179,6 +188,44 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
         content=answer,
         intent=intent,
         sources=db_sources
+    )
+
+    if escalation_required:
+        # Transition chat session status to WAITING_HUMAN
+        await repository.update_session_status(request.session_id, "WAITING_HUMAN")
+
+    # Logging & Tracing
+    latency_ms = (time.time() - start_time) * 1000
+    retrieved_chunks = final_state.get("retrieved_chunks", [])
+    trace_chunks = [
+        {
+            "doc_id": getattr(c, "metadata", {}).get("source", "unknown") if hasattr(c, "metadata") else c.get("metadata", {}).get("source", "unknown"),
+            "chunk_id": getattr(c, "id", "") if hasattr(c, "id") else c.get("id", ""),
+            "title": getattr(c, "metadata", {}).get("category", "Tài liệu VSmartPay") if hasattr(c, "metadata") else c.get("metadata", {}).get("category", "Tài liệu VSmartPay"),
+            "score": float(getattr(c, "score", 0.0)) if hasattr(c, "score") else float(c.get("score", 0.0))
+        }
+        for c in retrieved_chunks
+    ]
+    trace_doc = {
+        "request_id": request_id,
+        "session_id": request.session_id,
+        "user_id": request.user_id,
+        "user_message": request.message,
+        "intent": intent,
+        "confidence": confidence,
+        "tool_calls": tool_calls,
+        "retrieved_chunks": trace_chunks,
+        "nodes_executed": nodes_executed,
+        "latency_ms": latency_ms,
+        "timestamp": now_utc()
+    }
+    await repository.log_agent_trace(trace_doc)
+
+    logger.info(
+        f"[LANGGRAPH TRACE] request_id={request_id} | session_id={request.session_id} | "
+        f"intent={intent} (conf={confidence:.2f}) | "
+        f"tools_called={[tc['tool_name'] for tc in tool_calls]} | "
+        f"nodes_executed={nodes_executed} | latency={latency_ms:.1f}ms"
     )
     
     return ChatResponse(
