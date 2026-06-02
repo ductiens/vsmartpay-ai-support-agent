@@ -89,39 +89,9 @@ graph TD
     T --> Z[Return ChatResponse]
 ```
 
-### Luồng xử lý đa tác nhân (LangGraph Multi-Agent Flow)
-
-Dưới đây là sơ đồ luồng điều phối trạng thái hội thoại qua các Agent:
-
-```mermaid
-graph TD
-    Start([Khách hàng gửi câu hỏi]) --> InjGuard{1. Injection Guard}
-    
-    InjGuard -- Phát hiện tấn công --> Escalate[5. Escalation Agent <br/> Tạo Ticket HIGH và từ chối phản hồi]
-    InjGuard -- An toàn --> Intent[2. Intent Agent <br/> Phân loại 14 ý định]
-    
-    Intent --> RouteIntent{Phân loại ý định?}
-    
-    RouteIntent -- Ý định nhạy cảm / Khẩn cấp --> Escalate
-    RouteIntent -- Tác vụ Tài chính <br/> Balance, Tx Status, Fee --> Tools[3. Mock Wallet Tools <br/> Gọi API ví giả lập]
-    RouteIntent -- Tra cứu chính sách <br/> Hạn mức, Biểu phí, RAG --> RAG[4. RAG Agent <br/> Truy xuất MongoDB Atlas]
-    
-    Tools --> ConfCheck{4. Confidence Check}
-    RAG --> ConfCheck
-    
-    ConfCheck -- Độ tin cậy thấp <br/> Hoặc thiếu thông tin --> Clarify[5. Clarification Agent <br/> Yêu cầu làm rõ thông tin]
-    ConfCheck -- Độ tin cậy cao --> GroundGuard{6. Grounding Guard}
-    
-    GroundGuard -- Có ảo giác / Sai lệch --> Clarify
-    GroundGuard -- Đầy đủ dẫn chứng --> FinalResponse([7. Trả lời Khách hàng])
-    
-    Clarify --> FinalResponse
-    Escalate --> FinalResponse
-```
-
 ---
 
-## 🧩 2. Mô tả Chi tiết các Tác nhân (Agent Components Detail)
+<!-- ## 🧩 2. Mô tả Chi tiết các Tác nhân (Agent Components Detail)
 
 Hệ thống được thiết kế dưới dạng máy trạng thái hữu hạn sử dụng `StateGraph` từ LangGraph với các node xử lý độc lập:
 
@@ -172,21 +142,21 @@ Hệ thống áp dụng các quy tắc chuyển tiếp chặt chẽ:
 3.  **Quy tắc Mềm (Soft Escalation)**: Chuyển tiếp sang nhân viên hỗ trợ với mức ưu tiên `LOW` khi:
     *   Độ tin cậy phân loại ý định thấp hơn ngưỡng 60% (`confidence < 0.6`).
     *   Hệ thống RAG tìm kiếm không thấy tài liệu phù hợp (`context_insufficient = True`).
-    *   Câu hỏi nằm ngoài phạm vi hỗ trợ (`OUT_OF_SCOPE`).
+    *   Câu hỏi nằm ngoài phạm vi hỗ trợ (`OUT_OF_SCOPE`). -->
 
 ---
 
-## 🛠️ 5. Tích hợp Ví Điện tử Giả lập (Mock Wallet Tools)
+<!-- ## 🛠️ 5. Tích hợp Ví Điện tử Giả lập (Mock Wallet Tools)
 
 Để đảm bảo tính xác thực tuyệt đối của dữ liệu giao dịch và số dư, Support Agent tích hợp trực tiếp 3 API giả lập (Mock Tools) thay vì để LLM tự trả lời:
 
 1.  **`check_balance(user_id)`**: Trả về số dư chính xác của khách hàng kèm loại tiền tệ (mặc định số dư tài khoản `user_001` là **2.500.000 VND**).
 2.  **`get_transaction_status(transaction_id)`**: Tra cứu trạng thái giao dịch thời gian thực theo mã ID (ví dụ: `tx_001` trả về trạng thái `SUCCESS`, `tx_003` trả về `FAILED` kích hoạt tự động tạo Ticket hỗ trợ).
-3.  **`get_fee(transaction_type, amount)`**: Trả về biểu phí áp dụng chính xác cho từng loại giao dịch (ví dụ: Phí rút tiền mặc định là **1.100 VND**, phí nạp tiền và chuyển tiền là **0 VND**).
+3.  **`get_fee(transaction_type, amount)`**: Trả về biểu phí áp dụng chính xác cho từng loại giao dịch (ví dụ: Phí rút tiền mặc định là **1.100 VND**, phí nạp tiền và chuyển tiền là **0 VND**). -->
 
 ---
 
-## 📊 6. Đánh giá Hiệu năng (Evaluation & Benchmark Metrics)
+<!-- ## 📊 6. Đánh giá Hiệu năng (Evaluation & Benchmark Metrics)
 
 Kết quả so sánh side-by-side giữa luồng **Legacy RAG** và **Multi-Agent LangGraph** thực thi trên bộ dữ liệu kiểm định gồm **45 trường hợp thực tế** (`data/eval/golden_qa.jsonl` và `data/eval/escalation_cases.jsonl`):
 
@@ -204,7 +174,7 @@ Kết quả so sánh side-by-side giữa luồng **Legacy RAG** và **Multi-Agen
 | **P95 Latency (ms)** | **429.17 ms** | **448.67 ms** | Độ trễ phân vị 95 (đáp ứng trải nghiệm người dùng) |
 
 > [!TIP]
-> **Nhận xét chính**: Luồng LangGraph mặc dù có thêm chi phí điều phối máy trạng thái nhưng thời gian phản hồi p95 vẫn duy trì cực thấp (~**448.67 ms**), đáp ứng hoàn hảo tiêu chuẩn trải nghiệm khách hàng (< **2.0s**). Luồng đa tác vụ vượt trội hơn ở khả năng phát hiện rủi ro bảo mật qua chốt chặn bảo vệ đầu vào độc lập mà không tiêu tốn tài nguyên gọi mô hình ngôn ngữ lớn (LLM).
+> **Nhận xét chính**: Luồng LangGraph mặc dù có thêm chi phí điều phối máy trạng thái nhưng thời gian phản hồi p95 vẫn duy trì cực thấp (~**448.67 ms**), đáp ứng hoàn hảo tiêu chuẩn trải nghiệm khách hàng (< **2.0s**). Luồng đa tác vụ vượt trội hơn ở khả năng phát hiện rủi ro bảo mật qua chốt chặn bảo vệ đầu vào độc lập mà không tiêu tốn tài nguyên gọi mô hình ngôn ngữ lớn (LLM). -->
 
 ---
 
@@ -329,7 +299,7 @@ Kết quả đánh giá chi tiết sẽ tự động được xuất ra hai tệ
 
 ---
 
-## 🤝 13. Đề xuất Tích hợp Hệ thống (Integration Proposal)
+<!-- ## 🤝 13. Đề xuất Tích hợp Hệ thống (Integration Proposal)
 
 Đội ngũ phát triển VSmartPay đề xuất kế hoạch tích hợp trợ lý AI ảo vào kiến trúc hệ thống Production theo sơ đồ sau:
 
@@ -360,4 +330,4 @@ Chi tiết đề xuất tích hợp xem tại tệp tài liệu chính thức: [
 ---
 
 ## 📞 14. Thông tin Liên hệ
-Để đóng góp ý kiến hoặc yêu cầu hỗ trợ tích hợp kỹ thuật, vui lòng liên hệ đội ngũ Kỹ sư giải pháp AI tại **VSmartPay Solutions** hoặc gửi email về địa chỉ: `support-ai@vsmartpay.vn`.
+Để đóng góp ý kiến hoặc yêu cầu hỗ trợ tích hợp kỹ thuật, vui lòng liên hệ đội ngũ Kỹ sư giải pháp AI tại **VSmartPay Solutions** hoặc gửi email về địa chỉ: `support-ai@vsmartpay.vn`. -->
