@@ -45,11 +45,12 @@ async def test_retriever_unmatched_scope(mock_get_emb):
     mock_get_emb.return_value = [0.01] * 1536
     
     retriever = RAGRetriever()
-    # Non-existent scope
+    # Non-existent scope, verify it strictly returns 0 results when fallback is disabled
     res = await retriever.retrieve(
         query="Biểu phí",
         top_k=2,
         agent_scope="fees",
-        kb_type="policy"
+        kb_type="policy",
+        fallback=False
     )
     assert len(res) == 0

@@ -20,18 +20,19 @@ class ChatRepository:
             return db["chat_messages"]
         return None
 
-    async def log_session(self, session_id: str, user_id: str):
+    async def log_session(self, session_id: str, user_id: Optional[str] = None):
         """Log or update metadata of a chat session."""
         col = self.sessions_collection
         if col is not None:
             utc_now = now_utc()
+            set_dict: Dict[str, Any] = {"updated_at": utc_now}
+            if user_id is not None:
+                set_dict["user_id"] = user_id
+                
             await col.update_one(
                 {"session_id": session_id},
                 {
-                    "$set": {
-                        "user_id": user_id,
-                        "updated_at": utc_now
-                    },
+                    "$set": set_dict,
                     "$setOnInsert": {
                         "created_at": utc_now
                     }
@@ -70,7 +71,40 @@ class ChatRepository:
             async for doc in cursor:
                 history.append({
                     "role": doc.get("role"),
-                    "content": doc.get("content")
+                    "content": doc.get("content"),
+                    "timestamp": doc.get("timestamp"),
+                    "intent": doc.get("intent"),
+                    "sources": doc.get("sources") or []
                 })
             return history
         return []
+
+    async def get_user_sessions(self, user_id: str) -> List[Dict[str, Any]]:
+        """Retrieve all chat sessions for a user, sorted by updated_at desc."""
+        col = self.sessions_collection
+        if col is not None:
+            cursor = col.find({"user_id": user_id}).sort("updated_at", -1)
+            sessions = []
+            async for doc in cursor:
+                sessions.append({
+                    "session_id": doc.get("session_id"),
+                    "user_id": doc.get("user_id"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at")
+                })
+            return sessions
+        return []
+
+    async def get_session_by_id(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a session by its session_id."""
+        col = self.sessions_collection
+        if col is not None:
+            doc = await col.find_one({"session_id": session_id})
+            if doc:
+                return {
+                    "session_id": doc.get("session_id"),
+                    "user_id": doc.get("user_id"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at")
+                }
+        return None

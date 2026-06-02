@@ -7,8 +7,13 @@ class IntentClassifier:
         Classify user query into a precise intent. 
         (Phase 2: Complete rule-based heuristics for support topics)
         """
-        msg_lower = message.lower()
+        msg_lower = message.lower().strip()
         
+        # 0. Greetings / Chào hỏi xã giao (Xử lý để tránh bị đẩy thành ticket CSKH vô lý)
+        greetings = ["hi", "hello", "xin chào", "chào bạn", "chào ad", "hi?", "hello?"]
+        if msg_lower in greetings or any(msg_lower.startswith(g + " ") for g in greetings):
+            return IntentClassification(intent=IntentTaxonomy.FAQ_GENERAL.value, confidence=0.9)
+            
         # 1. Human Support Requests
         if any(w in msg_lower for w in ["gặp nhân viên", "cskh", "tư vấn viên", "gặp tư vấn", "gặp hỗ trợ"]):
             return IntentClassification(intent=IntentTaxonomy.HUMAN_SUPPORT_REQUEST.value, confidence=0.9)

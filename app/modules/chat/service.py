@@ -8,6 +8,7 @@ from app.modules.chat.repository import ChatRepository
 from app.modules.intents.classifier import IntentClassifier
 from app.modules.escalation.service import EscalationService
 from app.modules.rag.retriever import RAGRetriever
+from app.modules.chat.chain import ChatAnswerChain
 
 class ChatService:
     def __init__(self):
@@ -17,6 +18,7 @@ class ChatService:
         self.retriever = RAGRetriever()
         self.api_key = settings.OPENAI_API_KEY
         self.model = settings.OPENAI_MODEL
+        self.answer_chain = ChatAnswerChain()
 
     async def process_message(self, request: ChatRequest) -> ChatResponse:
         """
@@ -28,7 +30,8 @@ class ChatService:
             from app.core.graph import execute_graph
             return await execute_graph(request)
 
-        await self.repository.log_session(request.session_id, request.user_id)
+        user_id = request.user_id or ""
+        await self.repository.log_session(request.session_id, user_id)
         await self.repository.log_message(
             session_id=request.session_id,
             role="user",
@@ -78,10 +81,10 @@ class ChatService:
         # BALANCE_INQUIRY → call check_balance
         if intent_info.intent == "BALANCE_INQUIRY":
             from app.modules.tools.mock_wallet import check_balance
-            balance_data = await check_balance(request.user_id)
+            balance_data = await check_balance(user_id)
             tool_calls.append({
                 "tool_name": "check_balance",
-                "arguments": {"user_id": request.user_id},
+                "arguments": {"user_id": user_id},
                 "result": balance_data
             })
             
@@ -146,7 +149,7 @@ class ChatService:
 
         # Step 5: Evaluate escalation policies
         esc_info = await self.escalation_service.evaluate_escalation(
-            user_id=request.user_id,
+            user_id=user_id,
             last_message=request.message,
             intent=intent_info.intent,
             confidence=intent_info.confidence,
@@ -173,7 +176,7 @@ class ChatService:
                 
             from app.modules.tools.mock_wallet import create_support_ticket
             ticket_data = await create_support_ticket(
-                user_id=request.user_id,
+                user_id=user_id,
                 issue_type=issue_type,
                 message=request.message
             )
@@ -181,7 +184,7 @@ class ChatService:
             tool_calls.append({
                 "tool_name": "create_support_ticket",
                 "arguments": {
-                    "user_id": request.user_id,
+                    "user_id": user_id,
                     "issue_type": issue_type,
                     "message": request.message
                 },
@@ -251,17 +254,11 @@ class ChatService:
                 answer = "Xin lỗi, hiện tại tôi chưa tìm thấy thông tin tương ứng trong tài liệu hỗ trợ. Tôi có thể đề xuất kết nối bạn đến nhân viên hỗ trợ trực tiếp (CSKH) để xử lý tình huống này."
         else:
             try:
-                from openai import AsyncOpenAI
-                client = AsyncOpenAI(api_key=self.api_key)
-                response = await client.chat.completions.create(
-                    model=self.model,
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=0.2
+                answer = await self.answer_chain.generate_answer(
+                    message=request.message,
+                    context=context_str,
+                    tool_context=tool_context
                 )
-                answer = response.choices[0].message.content or ""
             except Exception as e:
                 # Safe fallback
                 if retrieved_chunks:
