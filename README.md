@@ -8,7 +8,7 @@
 
 Hệ thống cung cấp cơ chế xử lý song song hai luồng xử lý hội thoại (Legacy RAG Pipeline & Multi-Agent LangGraph Orchestration), dễ dàng bật tắt qua cấu hình `USE_LANGGRAPH`.
 
-### Luồng hoạt động của dự án
+### Luồng hoạt động của dự án sử dụng LangGraph (Flowchart)
 ```mermaid
 flowchart TD
     A["User gửi câu hỏi"] --> B["POST /chat"]
@@ -55,6 +55,38 @@ flowchart TD
     U --> V["LLM hoặc fallback answer"]
     V --> W["Lưu assistant message vào MongoDB"]
     W --> X["Trả ChatResponse"]
+```
+
+### Luồng hoạt động của dự án sử dụng LangChain
+```mermaid
+graph TD
+    A[Client Request /chat] --> B[JWT Authentication]
+    B --> C[Lấy user_id từ JWT]
+    C --> D{USE_LANGGRAPH?}
+
+    D -- True --> E[LangGraph Workflow]
+    E --> Z[Return ChatResponse]
+
+    D -- False --> F[Custom ChatService Pipeline]
+    F --> G[Log Session & User Message vào MongoDB]
+    G --> H[Classify Intent]
+    H --> I[Retrieve RAG Context]
+    I --> J[Call Mock Tools nếu cần]
+    J --> K[Evaluate Escalation]
+    K --> L[Create Support Ticket nếu cần]
+    L --> M{Có OpenAI API Key?}
+
+    M -- Không --> N[Local Fallback Answer]
+    M -- Có --> O[LangChain LCEL Chain]
+
+    O --> P[ChatPromptTemplate]
+    P --> Q[ChatOpenAI]
+    Q --> R[StrOutputParser]
+    R --> S[Final Answer]
+
+    N --> T[Log Assistant Message vào MongoDB]
+    S --> T
+    T --> Z[Return ChatResponse]
 ```
 
 ### Luồng xử lý đa tác nhân (LangGraph Multi-Agent Flow)

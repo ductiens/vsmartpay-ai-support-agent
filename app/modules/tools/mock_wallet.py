@@ -60,23 +60,28 @@ _client = MockWalletClient()
 
 async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
     """
-    check_balance(user_id) - Query MongoDB wallets collection.
-    Falls back to reading wallets.json if DB is not available.
+    check_balance(user_id) - Call FinanceService to get balance.
+    Falls back to wallets.json if DB is not available or user wallet is not found.
     """
     try:
-        from app.database import get_db
-        db = get_db()
-        if db is not None:
-            wallet = await db["wallets"].find_one({"user_id": user_id}, {"_id": 0})
-            if wallet is not None:
-                return {
-                    "user_id": wallet["user_id"],
-                    "balance": wallet["balance"],
-                    "currency": wallet.get("currency", "VND"),
-                    "status": wallet.get("status", "ACTIVE"),
-                }
+        from app.modules.finance.service import FinanceService
+        from app.common.exceptions import NotFoundException
+        finance_service = FinanceService()
+        
+        try:
+            balance_data = await finance_service.get_balance(user_id)
+            # Fetch wallet metadata for status
+            wallet_data = await finance_service.get_wallet_by_user(user_id)
+            return {
+                "user_id": balance_data.user_id,
+                "balance": balance_data.balance,
+                "currency": balance_data.currency,
+                "status": wallet_data.status
+            }
+        except NotFoundException:
+            pass
     except Exception as e:
-        logger.warning(f"check_balance DB query failed, falling back to JSON: {e}")
+        logger.warning(f"check_balance via FinanceService failed, falling back to JSON: {e}")
 
     # Fallback to JSON file
     return _client.get_wallet_by_user_id(user_id)
@@ -84,17 +89,15 @@ async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
 
 def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
     """
-    get_fee(transaction_type, amount) - Returns fee info based on transaction type and amount.
-    Pure logic, no DB needed.
+    get_fee(transaction_type, amount) - Returns fee info based on FinanceService static fee calculation.
     """
-    fee = 0
-    tx_type_upper = transaction_type.upper()
-    if tx_type_upper == "WITHDRAWAL":
-        fee = 1100
-    elif tx_type_upper == "TRANSFER":
-        fee = 0
-    elif tx_type_upper == "DEPOSIT":
-        fee = 0
+    try:
+        from app.modules.finance.service import FinanceService
+        fee = FinanceService.calculate_fee(transaction_type, amount)
+    except Exception as e:
+        logger.warning(f"get_fee via FinanceService failed, falling back to local logic: {e}")
+        fee = 1100 if transaction_type.upper() == "WITHDRAWAL" else 0
+
     return {
         "transaction_type": transaction_type,
         "amount": amount,
@@ -105,28 +108,25 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
 
 async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]]:
     """
-    get_transaction_status(transaction_id) - Query MongoDB transactions collection.
+    get_transaction_status(transaction_id) - Query MongoDB transactions collection via FinanceService repository.
     Falls back to reading transactions.json if DB is not available.
     """
     try:
-        from app.database import get_db
-        db = get_db()
-        if db is not None:
-            txn = await db["transactions"].find_one(
-                {"transaction_id": transaction_id}, {"_id": 0}
-            )
-            if txn is not None:
-                return {
-                    "transaction_id": txn["transaction_id"],
-                    "user_id": txn.get("user_id", "unknown"),
-                    "amount": txn.get("amount", 0),
-                    "type": txn.get("type", "UNKNOWN"),
-                    "status": txn.get("status", "UNKNOWN"),
-                    "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
-                    "currency": "VND",
-                }
+        from app.modules.finance.service import FinanceService
+        finance_service = FinanceService()
+        txn = await finance_service.repo.get_transaction_by_id(transaction_id)
+        if txn is not None:
+            return {
+                "transaction_id": txn["transaction_id"],
+                "user_id": txn.get("user_id", "unknown"),
+                "amount": txn.get("amount", 0),
+                "type": txn.get("type", "UNKNOWN"),
+                "status": txn.get("status", "UNKNOWN"),
+                "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
+                "currency": "VND",
+            }
     except Exception as e:
-        logger.warning(f"get_transaction_status DB query failed, falling back to JSON: {e}")
+        logger.warning(f"get_transaction_status via FinanceService failed, falling back to JSON: {e}")
 
     # Fallback to JSON file
     transactions = _client._read_json("transactions.json")
@@ -138,31 +138,32 @@ async def get_transaction_status(transaction_id: str) -> Optional[Dict[str, Any]
 
 async def get_transaction_history(user_id: str, limit: int = 10) -> list:
     """
-    get_transaction_history(user_id) - Query MongoDB for user's transaction history.
+    get_transaction_history(user_id) - Query via FinanceService.
     Falls back to reading transactions.json if DB is not available.
     """
     try:
-        from app.database import get_db
-        db = get_db()
-        if db is not None:
-            cursor = db["transactions"].find(
-                {"user_id": user_id}, {"_id": 0}
-            ).sort("created_at", -1).limit(limit)
-            transactions = await cursor.to_list(length=limit)
+        from app.modules.finance.service import FinanceService
+        from app.common.exceptions import NotFoundException
+        finance_service = FinanceService()
+        
+        try:
+            history_data = await finance_service.get_transaction_history(user_id, limit=limit, skip=0)
             result = []
-            for txn in transactions:
+            for txn in history_data.transactions:
                 result.append({
-                    "transaction_id": txn["transaction_id"],
-                    "amount": txn.get("amount", 0),
-                    "type": txn.get("type", "UNKNOWN"),
-                    "status": txn.get("status", "UNKNOWN"),
-                    "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
+                    "transaction_id": txn.transaction_id,
+                    "amount": txn.amount,
+                    "type": txn.type,
+                    "status": txn.status,
+                    "timestamp": txn.created_at.isoformat() if hasattr(txn.created_at, "isoformat") else str(txn.created_at),
                     "currency": "VND",
                 })
             if result:
                 return result
+        except NotFoundException:
+            pass
     except Exception as e:
-        logger.warning(f"get_transaction_history DB query failed, falling back to JSON: {e}")
+        logger.warning(f"get_transaction_history via FinanceService failed, falling back to JSON: {e}")
 
     # Fallback to JSON file
     all_txns = _client._read_json("transactions.json")
@@ -171,18 +172,21 @@ async def get_transaction_history(user_id: str, limit: int = 10) -> list:
 
 async def get_user_kyc_status(user_id: str) -> str:
     """
-    get_user_kyc_status(user_id) - Query MongoDB users collection.
+    get_user_kyc_status(user_id) - Query via FinanceService.
     Falls back to reading users.json if DB is not available.
     """
     try:
-        from app.database import get_db
-        db = get_db()
-        if db is not None:
-            user = await db["users"].find_one({"user_id": user_id}, {"_id": 0})
-            if user is not None:
-                return user.get("kyc_status", "UNVERIFIED")
+        from app.modules.finance.service import FinanceService
+        from app.common.exceptions import NotFoundException
+        finance_service = FinanceService()
+        
+        try:
+            user_data = await finance_service.get_user(user_id)
+            return user_data.kyc_status
+        except NotFoundException:
+            pass
     except Exception as e:
-        logger.warning(f"get_user_kyc_status DB query failed, falling back to JSON: {e}")
+        logger.warning(f"get_user_kyc_status via FinanceService failed, falling back to JSON: {e}")
 
     # Fallback to JSON file
     users = _client._read_json("users.json")
