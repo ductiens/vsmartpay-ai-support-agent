@@ -299,35 +299,4 @@ Kết quả đánh giá chi tiết sẽ tự động được xuất ra hai tệ
 
 ---
 
-<!-- ## 🤝 13. Đề xuất Tích hợp Hệ thống (Integration Proposal)
 
-Đội ngũ phát triển VSmartPay đề xuất kế hoạch tích hợp trợ lý AI ảo vào kiến trúc hệ thống Production theo sơ đồ sau:
-
-```mermaid
-sequenceDiagram
-    autonumber
-    Khách hàng->>API Gateway: Gửi tin nhắn chat
-    API Gateway->>Chat App (FastAPI): Forward yêu cầu hội thoại
-    Chat App (FastAPI)->>MongoDB: Kiểm tra/Khởi tạo lịch sử session hội thoại
-    Chat App (FastAPI)->>MongoDB: Lưu tin nhắn của Khách hàng
-    Chat App (FastAPI)->>Orchestration Flow (LangGraph): Thực thi luồng Agent xử lý
-    Orchestration Flow (LangGraph)->>Ví VSmartPay Core API: Thực thi gọi Mock Tools (nếu cần)
-    Orchestration Flow (LangGraph)->>MongoDB Atlas Search: Tìm kiếm ngữ nghĩa tài liệu RAG
-    Orchestration Flow (LangGraph)-->>Chat App (FastAPI): Phản hồi câu trả lời tối ưu + Trạng thái Escalation
-    
-    alt Có tín hiệu Escalation = True
-        Chat App (FastAPI)->>MongoDB: Ghi nhận Support Ticket (status = OPEN)
-        Chat App (FastAPI)->>Hệ thống CSKH (Genesys/Omnichannel): Đẩy Ticket khẩn cấp vào hàng đợi CSKH
-        Hệ thống CSKH (Genesys/Omnichannel)-->>Khách hàng: Kết nối cuộc gọi / chat trực tiếp với CSKH thật
-    else Phản hồi tự động
-        Chat App (FastAPI)->>MongoDB: Lưu phản hồi của Agent vào session
-        Chat App (FastAPI)-->>Khách hàng: Trả về câu trả lời tự động kèm danh sách nguồn tài liệu tra cứu
-    end
-```
-
-Chi tiết đề xuất tích hợp xem tại tệp tài liệu chính thức: [docs/INTEGRATION_PROPOSAL.md](file:///d:/VinFast/VSF\Fintech\Industry\vsmartpay-ai-support-agent/docs/INTEGRATION_PROPOSAL.md).
-
----
-
-## 📞 14. Thông tin Liên hệ
-Để đóng góp ý kiến hoặc yêu cầu hỗ trợ tích hợp kỹ thuật, vui lòng liên hệ đội ngũ Kỹ sư giải pháp AI tại **VSmartPay Solutions** hoặc gửi email về địa chỉ: `support-ai@vsmartpay.vn`. -->
