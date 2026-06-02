@@ -182,7 +182,7 @@ class DocumentService:
             
             for idx in range(n_pages):
                 page = doc.load_page(idx)
-                page_text = page.get_text() or ""
+                page_text = page.get_text() or ""  # type: ignore[attr-defined]
                 # Đếm số ký tự (bỏ qua khoảng trắng)
                 if len(page_text.strip()) < 100:
                     scanned_pages_count += 1
@@ -448,8 +448,136 @@ class DocumentService:
         """Lấy thông tin tài liệu theo doc_id."""
         doc_col = self.documents_collection
         if doc_col is not None:
-            return await doc_col.find_one({"doc_id": doc_id})
+            return await doc_col.find_one({"doc_id": doc_id}, {"_id": 0})
         return None
+
+    async def list_documents(self) -> List[Dict[str, Any]]:
+        """Lấy danh sách tất cả tài liệu, sắp xếp mới nhất trước."""
+        doc_col = self.documents_collection
+        if doc_col is None:
+            return []
+        cursor = doc_col.find({}, {"_id": 0, "raw_text": 0}).sort("created_at", -1)
+        return await cursor.to_list(length=200)
+
+    async def delete_document(self, doc_id: str) -> bool:
+        """
+        Xóa tài liệu và tất cả các chunk embedding liên quan.
+        Trả về True nếu xóa thành công, False nếu tài liệu không tồn tại.
+        """
+        doc_col = self.documents_collection
+        if doc_col is None:
+            return False
+        
+        doc = await doc_col.find_one({"doc_id": doc_id})
+        if not doc:
+            return False
+        
+        # Xóa tất cả chunk embeddings thuộc về tài liệu này
+        await self.vector_store.delete_chunks_by_doc_id(doc_id)
+        # Xóa bản ghi tài liệu
+        await doc_col.delete_one({"doc_id": doc_id})
+        return True
+
+    async def get_document_chunks(self, doc_id: str) -> List[Dict[str, Any]]:
+        """Lấy danh sách tất cả chunk thuộc một tài liệu cụ thể."""
+        chunks_col = self.chunks_collection
+        if chunks_col is None:
+            return []
+        cursor = chunks_col.find(
+            {"doc_id": doc_id},
+            {"_id": 0, "embedding": 0}  # Loại bỏ embedding vector (quá lớn) khỏi response
+        ).sort("chunk_index", 1)
+        return await cursor.to_list(length=500)
+
+    async def reprocess_document(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Xử lý lại tài liệu từ dữ liệu raw_text đã lưu.
+        Xóa toàn bộ chunk cũ, chia lại chunk mới, tạo embedding mới và lưu vào DB.
+        Trả về thông tin tài liệu đã cập nhật, hoặc None nếu không tìm thấy.
+        """
+        doc_col = self.documents_collection
+        if doc_col is None:
+            return None
+        
+        doc = await doc_col.find_one({"doc_id": doc_id})
+        if not doc:
+            return None
+        
+        raw_text = doc.get("raw_text", "")
+        if not raw_text:
+            return None
+        
+        # Đánh dấu đang xử lý lại
+        utc_now = now_utc()
+        await doc_col.update_one(
+            {"doc_id": doc_id},
+            {"$set": {"status": "processing", "updated_at": utc_now}}
+        )
+        
+        try:
+            # 1. Xóa chunk cũ
+            await self.vector_store.delete_chunks_by_doc_id(doc_id)
+            
+            # 2. Chia chunk mới từ raw_text đã lưu
+            extracted_pages = [{"text": raw_text, "page": None, "heading": None}]
+            chunks = self._chunk_document(extracted_pages)
+            
+            if not chunks:
+                raise ValueError("No chunks could be generated from raw text.")
+            
+            # 3. Tạo embedding mới và lưu chunk
+            file_name = doc.get("file_name", "unknown")
+            chunk_docs = []
+            for item in chunks:
+                content = item["content"]
+                contextualized_content = content
+                if item["heading"]:
+                    contextualized_content = f"Tiêu đề: {item['heading']}\nNội dung: {content}"
+                
+                embedding = await self.embedding_service.get_embedding(contextualized_content)
+                utc_now = now_utc()
+                
+                chunk_docs.append({
+                    "chunk_id": generate_id(),
+                    "doc_id": doc_id,
+                    "chunk_index": item["chunk_index"],
+                    "content": content,
+                    "embedding": embedding,
+                    "embedding_model": settings.EMBEDDING_MODEL,
+                    "file_name": file_name,
+                    "page": item["page"],
+                    "heading": item["heading"],
+                    "token_count": self._count_tokens(content),
+                    "created_at": utc_now,
+                    "updated_at": utc_now
+                })
+            
+            await self.vector_store.add_chunks(chunk_docs)
+            
+            # 4. Cập nhật trạng thái tài liệu
+            utc_now = now_utc()
+            await doc_col.update_one(
+                {"doc_id": doc_id},
+                {"$set": {
+                    "status": "processed",
+                    "chunk_count": len(chunks),
+                    "updated_at": utc_now
+                }}
+            )
+            
+            return await doc_col.find_one({"doc_id": doc_id}, {"_id": 0})
+            
+        except Exception as e:
+            utc_now = now_utc()
+            await doc_col.update_one(
+                {"doc_id": doc_id},
+                {"$set": {
+                    "status": "failed",
+                    "error_message": f"Reprocess failed: {str(e)}",
+                    "updated_at": utc_now
+                }}
+            )
+            return None
 
     async def process_document_background(
         self, 

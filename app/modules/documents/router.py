@@ -1,6 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, HTTPException, Query
 from typing import List, Optional
-from app.modules.documents.schema import UploadResult, UploadResponse, DocStatusResponse
+from app.modules.documents.schema import (
+    UploadResult, UploadResponse, DocStatusResponse,
+    DocumentListItem, DocumentChunkItem
+)
 from app.modules.documents.service import DocumentService
 
 router = APIRouter(prefix="/documents", tags=["Documents Management"])
@@ -35,7 +38,7 @@ async def upload_documents(
         # Max 10MB per file
         if file_size > 10 * 1024 * 1024:
             results.append(UploadResult(
-                file_name=file.filename,
+                file_name=file.filename or "unknown",
                 status="failed",
                 error_message="File exceeds 10MB limit."
             ))
@@ -80,6 +83,23 @@ async def upload_documents(
     )
 
 
+@router.get("/", response_model=List[DocumentListItem])
+async def list_documents():
+    """Lấy danh sách tất cả tài liệu đã upload, sắp xếp mới nhất trước."""
+    docs = await doc_service.list_documents()
+    return [
+        DocumentListItem(
+            doc_id=d["doc_id"],
+            file_name=d["file_name"],
+            status=d["status"],
+            chunk_count=d.get("chunk_count", 0),
+            error_message=d.get("error_message"),
+            created_at=d.get("created_at"),
+            updated_at=d.get("updated_at")
+        ) for d in docs
+    ]
+
+
 @router.get("/{doc_id}/status", response_model=DocStatusResponse)
 async def get_document_status(doc_id: str):
     doc = await doc_service.get_document_status(doc_id)
@@ -93,3 +113,55 @@ async def get_document_status(doc_id: str):
         chunk_count=doc.get("chunk_count", 0),
         error_message=doc.get("error_message")
     )
+
+
+@router.get("/{doc_id}/chunks", response_model=List[DocumentChunkItem])
+async def get_document_chunks(doc_id: str):
+    """Xem danh sách tất cả chunk (đoạn văn bản đã chia nhỏ) của một tài liệu cụ thể."""
+    # Kiểm tra tài liệu tồn tại
+    doc = await doc_service.get_document_status(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    
+    chunks = await doc_service.get_document_chunks(doc_id)
+    return [
+        DocumentChunkItem(
+            chunk_id=c.get("chunk_id", ""),
+            chunk_index=c.get("chunk_index", 0),
+            content=c.get("content", ""),
+            page=c.get("page"),
+            heading=c.get("heading"),
+            category=c.get("category"),
+            kb_type=c.get("kb_type"),
+            token_count=c.get("token_count")
+        ) for c in chunks
+    ]
+
+
+@router.delete("/{doc_id}")
+async def delete_document(doc_id: str):
+    """Xóa tài liệu và toàn bộ chunk embedding liên quan."""
+    deleted = await doc_service.delete_document(doc_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {"success": True, "message": f"Tài liệu {doc_id} và toàn bộ chunk đã được xóa thành công."}
+
+
+@router.post("/{doc_id}/reprocess", response_model=DocStatusResponse)
+async def reprocess_document(doc_id: str):
+    """
+    Xử lý lại tài liệu: xóa toàn bộ chunk cũ, chia chunk mới, tạo embedding mới.
+    Hữu ích khi thay đổi cấu hình chunk_size hoặc embedding model.
+    """
+    result = await doc_service.reprocess_document(doc_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Document not found or has no raw text to reprocess.")
+    
+    return DocStatusResponse(
+        doc_id=result["doc_id"],
+        file_name=result["file_name"],
+        status=result["status"],
+        chunk_count=result.get("chunk_count", 0),
+        error_message=result.get("error_message")
+    )
+
