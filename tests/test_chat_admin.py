@@ -62,8 +62,8 @@ async def test_admin_authorization(client: AsyncClient):
     resp = await client.get("/api/v1/admin/chat-sessions/some_session/messages", headers=normal_headers)
     assert resp.status_code == 403
     
-    # 3. Test POST /api/v1/admin/chat-sessions/some_session/reply
-    resp = await client.post("/api/v1/admin/chat-sessions/some_session/reply", json={"message": "hi"}, headers=normal_headers)
+    # 3. Test POST /api/v1/admin/chat-sessions/some_session/messages
+    resp = await client.post("/api/v1/admin/chat-sessions/some_session/messages", json={"message": "hi"}, headers=normal_headers)
     assert resp.status_code == 403
 
 @pytest.mark.asyncio
@@ -137,7 +137,7 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
         assert len(history) >= 2
 
         # Step 4: Admin replies to chat
-        reply_resp = await client.post(f"/api/v1/admin/chat-sessions/{session_id}/reply", json={
+        reply_resp = await client.post(f"/api/v1/admin/chat-sessions/{session_id}/messages", json={
             "message": "Chào bạn, tôi đã tiếp nhận sự cố ví bị hack của bạn và đang kiểm tra."
         }, headers=admin_headers)
         assert reply_resp.status_code == 200

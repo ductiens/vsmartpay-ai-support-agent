@@ -5,7 +5,7 @@ from app.common.response import success_response
 from app.modules.finance.schema import UserResponse
 from app.modules.chat.schema import (
     ChatRequest, ChatResponse, ChatSessionResponse, ChatMessageResponse,
-    AdminReplyRequest, AssignAgentRequest, UpdateTicketStatusRequest, AdminChatMessageRequest
+    AdminChatMessageRequest
 )
 from app.modules.chat.service import ChatService
 
@@ -98,38 +98,6 @@ async def admin_get_session_history(
             detail="Phiên hội thoại không tồn tại."
         )
     return await chat_service.repository.get_history(session_id)
-
-@router.post("/api/v1/admin/chat-sessions/{session_id}/reply", response_model=None)
-async def admin_reply_to_chat(
-    session_id: str,
-    request: AdminReplyRequest,
-    current_admin: UserResponse = Depends(get_current_admin)
-):
-    """
-    CSKH Dashboard: Nhân viên CSKH phản hồi trực tiếp vào phiên chat của khách hàng (Chỉ dành cho Admin/CSKH).
-    Ghi tin nhắn vai trò assistant, cập nhật trạng thái session thành HUMAN_ACTIVE.
-    """
-    session = await chat_service.repository.get_session_by_id(session_id)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Phiên hội thoại không tồn tại."
-        )
-        
-    # 1. Ghi tin nhắn phản hồi của nhân viên CSKH
-    await chat_service.repository.log_message(
-        session_id=session_id,
-        role="assistant",
-        content=request.message
-    )
-    
-    # 2. Cập nhật trạng thái session sang HUMAN_ACTIVE
-    await chat_service.repository.update_session_status(session_id, "HUMAN_ACTIVE")
-    
-    return success_response(
-        data={"session_id": session_id, "status": "HUMAN_ACTIVE"},
-        message="Gửi phản hồi CSKH thành công."
-    )
 
 @router.post("/api/v1/admin/chat-sessions/{session_id}/messages", response_model=None)
 async def admin_send_message(
