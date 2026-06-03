@@ -300,3 +300,7 @@ Kết quả đánh giá chi tiết sẽ tự động được xuất ra hai tệ
 ---
 
 
+Số điện thoại: 0909090909
+Mật khẩu: adminpassword123
+Vai trò: admin
+Ví liên kết: wlt_admin_cskh (Số dư khởi tạo: 10.000.000 VND)

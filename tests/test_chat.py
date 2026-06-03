@@ -103,7 +103,7 @@ async def test_tools_fees_endpoint(client):
 
 
 @pytest.mark.asyncio
-@patch("app.modules.tools.mock_wallet.MockWalletClient.get_transaction_by_id")
+@patch("app.modules.tools.financial_tools.MockWalletClient.get_transaction_by_id")
 async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
     mock_get_tx_by_id.return_value = None
     response = await client.get("/tools/transactions/non_existent_tx_id")
@@ -114,7 +114,7 @@ async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
 
 
 @pytest.mark.asyncio
-@patch("app.modules.tools.mock_wallet.MockWalletClient.get_wallet_by_user_id")
+@patch("app.modules.tools.financial_tools.MockWalletClient.get_wallet_by_user_id")
 async def test_tools_balance_not_found(mock_get_wallet, client):
     mock_get_wallet.return_value = None
     response = await client.get("/tools/balance/non_existent_user_id")

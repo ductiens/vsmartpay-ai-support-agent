@@ -98,10 +98,10 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
     }
 
 
-async def get_transaction_status(transaction_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+async def get_transaction_status(transaction_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     get_transaction_status(transaction_id, user_id) - Query MongoDB transactions collection via FinanceService repository.
-    Verifies that the transaction belongs to the calling user_id (sender or recipient).
+    Verifies that the transaction belongs to the calling user_id (sender or recipient) if provided.
     Falls back to reading transactions.json if DB is not available.
     """
     try:
@@ -109,8 +109,8 @@ async def get_transaction_status(transaction_id: str, user_id: str) -> Optional[
         finance_service = FinanceService()
         txn = await finance_service.repo.get_transaction_by_id(transaction_id)
         if txn is not None:
-            # Security check: transaction ownership
-            if txn.get("user_id") != user_id and txn.get("recipient_user_id") != user_id:
+            # Security check: transaction ownership (only if user_id is provided)
+            if user_id is not None and txn.get("user_id") != user_id and txn.get("recipient_user_id") != user_id:
                 return {"error": "Bạn không có quyền xem thông tin giao dịch này."}
                 
             return {
@@ -129,7 +129,7 @@ async def get_transaction_status(transaction_id: str, user_id: str) -> Optional[
     transactions = _client._read_json("transactions.json")
     for t in transactions:
         if t.get("transaction_id") == transaction_id:
-            if t.get("user_id") != user_id and t.get("recipient_user_id") != user_id:
+            if user_id is not None and t.get("user_id") != user_id and t.get("recipient_user_id") != user_id:
                 return {"error": "Bạn không có quyền xem thông tin giao dịch này."}
             return t
             

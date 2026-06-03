@@ -50,7 +50,7 @@ class ChatService:
         # Step 2: Classify intent
         intent_info = await self.intent_classifier.classify_intent(request.message)
         
-        # Step 3: Retrieve top-k documents (FAISS)
+        # Step 3: Retrieve top-k documents 
         retrieved_chunks = await self.retriever.retrieve(request.message, top_k=settings.TOP_K)
         
         # Filter sources with positive score to show in response

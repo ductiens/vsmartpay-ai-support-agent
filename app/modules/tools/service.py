@@ -18,7 +18,7 @@ class ToolService:
             currency=data.get("currency", "VND")
         )
 
-    async def get_transaction(self, transaction_id: str, user_id: str = "user_001") -> TransactionDetail:
+    async def get_transaction(self, transaction_id: str, user_id: Optional[str] = None) -> TransactionDetail:
         from app.modules.tools.financial_tools import get_transaction_status
         data = await get_transaction_status(transaction_id, user_id)
         if data is None:
