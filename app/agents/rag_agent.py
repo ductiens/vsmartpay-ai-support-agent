@@ -16,13 +16,17 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     user_id = state.get("user_id", "")
     
     # 1. Retrieve relevant chunks using RAGRetriever with scoping filters
-    retriever = RAGRetriever()
-    retrieved_chunks = await retriever.retrieve(
-        query=user_message,
-        top_k=settings.TOP_K,
-        agent_scope=agent_scope,
-        kb_type=kb_type
-    )
+    tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
+    if intent in tool_only_intents:
+        retrieved_chunks = []
+    else:
+        retriever = RAGRetriever()
+        retrieved_chunks = await retriever.retrieve(
+            query=user_message,
+            top_k=settings.TOP_K,
+            agent_scope=agent_scope,
+            kb_type=kb_type
+        )
     
     # Calculate retrieval score, doc_ids, sources
     retrieval_score = 0.0

@@ -157,29 +157,23 @@ async def test_langgraph_confidence_escalation_flow(enable_langgraph, client):
 
 
 @pytest.mark.asyncio
-async def test_langgraph_fallback_behavior(client):
-    """6. Verify that setting USE_LANGGRAPH=False executes the legacy pipeline cleanly."""
-    # Ensure settings.USE_LANGGRAPH is False
-    assert settings.USE_LANGGRAPH is False
-    
-    # This test will run synchronously/async through the legacy service
-    # and verify balance query calls legacy check_balance tool call
+@patch("app.modules.rag.retriever.RAGRetriever.retrieve")
+async def test_langgraph_rag_optimization_tool_only(mock_retrieve, enable_langgraph, client):
+    """6. Verify that querying balance (Tool-only) bypasses RAG retriever query."""
     payload = {
-        "session_id": "sess_lg_fallback",
+        "session_id": "sess_lg_opt_tool_only",
         "user_id": "user_001",
         "message": "Tôi muốn kiểm tra số dư ví khả dụng hiện tại của mình là bao nhiêu?"
     }
     
-    # We patch OpenAI calls to keep the test standalone and clean
-    with patch("openai.resources.chat.completions.AsyncCompletions.create") as mock_openai:
-        # ChatService process_message can run without OpenAI on tool intents
-        # since it uses local text formatting as fallback
-        response = await client.post("/chat", json=payload)
-        assert response.status_code == 200
-        data = response.json()
-        
-        assert data["intent"] == "BALANCE_INQUIRY"
-        assert len(data["tool_calls"]) > 0
-        assert data["tool_calls"][0]["tool_name"] == "check_balance"
-        assert data["tool_calls"][0]["result"]["balance"] == 2500000
+    response = await client.post("/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    
+    assert data["intent"] == "BALANCE_INQUIRY"
+    assert len(data["tool_calls"]) > 0
+    assert data["tool_calls"][0]["tool_name"] == "check_balance"
+    
+    # Verify that the RAG retriever was NOT called
+    mock_retrieve.assert_not_called()
 

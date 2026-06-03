@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     VECTOR_STORE_PATH: str = "vector_store/faiss_index"
     MONGODB_VECTOR_INDEX_NAME: str = "vector_index"
     TOP_K: int = 5
-    USE_LANGGRAPH: bool = False
+    USE_LANGGRAPH: bool = True
     VECTOR_STORE: str = "faiss"
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 100

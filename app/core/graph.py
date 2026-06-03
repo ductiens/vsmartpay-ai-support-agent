@@ -55,6 +55,20 @@ def route_decision(state: SupportAgentState) -> Literal["escalation", "clarifica
         
     return "final"
 
+def route_after_intent(state: SupportAgentState) -> Literal["escalation", "tool_router"]:
+    """
+    Directly route to escalation_agent if prompt injection or direct escalation intent is detected.
+    """
+    if state.get("injection_detected", False) or state.get("escalation_required", False):
+        return "escalation"
+        
+    intent = state.get("intent", "FAQ_GENERAL")
+    direct_escalation_intents = ["HUMAN_SUPPORT_REQUEST", "FRAUD_OR_SCAM_REPORT", "ACCOUNT_SECURITY", "REFUND_OR_DISPUTE"]
+    if intent in direct_escalation_intents:
+        return "escalation"
+        
+    return "tool_router"
+
 # 2. Build the workflow StateGraph
 workflow = StateGraph(SupportAgentState)
 
@@ -72,7 +86,16 @@ workflow.add_node("final_answer_node", final_answer_node)
 # Connect the nodes in linear flow
 workflow.set_entry_point("injection_guard")
 workflow.add_edge("injection_guard", "intent_agent")
-workflow.add_edge("intent_agent", "tool_router")
+
+workflow.add_conditional_edges(
+    "intent_agent",
+    route_after_intent,
+    {
+        "escalation": "escalation_agent",
+        "tool_router": "tool_router"
+    }
+)
+
 workflow.add_edge("tool_router", "rag_agent")
 workflow.add_edge("rag_agent", "grounding_guard")
 workflow.add_edge("grounding_guard", "confidence_agent")
