@@ -181,40 +181,8 @@ class ChatService:
         reason = esc_info.reason
         priority = esc_info.priority or "MEDIUM"
         
-        # If escalation is required, call create_support_ticket and save ticket to MongoDB
+        # If escalation is required, transition chat session status to WAITING_HUMAN
         if required:
-            # Map intent to support issue type
-            issue_type = "GENERAL_SUPPORT"
-            if intent_info.intent == "FRAUD_OR_SCAM_REPORT" or "lừa đảo" in request.message.lower() or "mất tiền" in request.message.lower():
-                issue_type = "FRAUD"
-            elif intent_info.intent == "ACCOUNT_SECURITY" or "bị hack" in request.message.lower() or "otp" in request.message.lower():
-                issue_type = "SECURITY"
-            elif transaction_status is not None:
-                issue_type = "TRANSACTION"
-            elif intent_info.intent == "REFUND_OR_DISPUTE":
-                issue_type = "REFUND"
-                
-            from app.modules.tools.financial_tools import create_support_ticket
-            ticket_data = await create_support_ticket(
-                user_id=user_id,
-                issue_type=issue_type,
-                message=request.message,
-                session_id=request.session_id,
-                priority=priority
-            )
-            
-            tool_calls.append({
-                "tool_name": "create_support_ticket",
-                "arguments": {
-                    "user_id": user_id,
-                    "issue_type": issue_type,
-                    "message": request.message,
-                    "session_id": request.session_id,
-                    "priority": priority
-                },
-                "result": ticket_data
-            })
-            
             # Transition chat session status to WAITING_HUMAN
             await self.repository.update_session_status(request.session_id, "WAITING_HUMAN")
 
@@ -294,7 +262,7 @@ class ChatService:
                 }.get(tx_type_str.upper(), tx_type_str)
                 answer = f"Chào bạn, phí áp dụng cho giao dịch {type_vi} với số tiền {amount or 0:,} VND là **{fee_data.get('fee', 0):,} VND**."
             elif required:
-                answer = f"Chào bạn, yêu cầu của bạn đã được ghi nhận hỗ trợ trực tiếp từ con người. Hệ thống đã tự động tạo một ticket hỗ trợ (mức độ ưu tiên: {priority}) gửi đến bộ phận CSKH với lý do: {reason}. Nhân viên hỗ trợ sẽ liên hệ với bạn trong thời gian sớm nhất."
+                answer = f"Chào bạn, yêu cầu của bạn đã được ghi nhận hỗ trợ trực tiếp từ con người. Cuộc hội thoại đã được chuyển sang trạng thái chờ nhân viên CSKH hỗ trợ. Nhân viên hỗ trợ sẽ liên hệ với bạn trong thời gian sớm nhất."
             elif len(context_parts) > 0 and "không tìm thấy" not in context_str.lower():
                 answer = f"Dựa trên tài liệu VSmartPay về {retrieved_chunks[0].metadata.get('category', 'tài liệu')}: {retrieved_chunks[0].text[:300]}..."
             else:

@@ -51,11 +51,11 @@ async def test_admin_authorization(client: AsyncClient):
     # Create admin user
     _, admin_headers = await register_and_login_user(client, "0983333333", "admin")
 
-    # 1. Test GET /api/v1/admin/support-tickets
-    resp = await client.get("/api/v1/admin/support-tickets", headers=normal_headers)
+    # 1. Test GET /api/v1/admin/chat-sessions/waiting
+    resp = await client.get("/api/v1/admin/chat-sessions/waiting", headers=normal_headers)
     assert resp.status_code == 403
     
-    resp = await client.get("/api/v1/admin/support-tickets", headers=admin_headers)
+    resp = await client.get("/api/v1/admin/chat-sessions/waiting", headers=admin_headers)
     assert resp.status_code == 200
 
     # 2. Test GET /api/v1/admin/chat-sessions/some_session/messages
@@ -122,14 +122,13 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
         assert test_session["status"] == "WAITING_HUMAN"
 
         # Step 3: CSKH Dashboard APIs
-        # Admin gets all support tickets
-        tickets_resp = await client.get("/api/v1/admin/support-tickets", headers=admin_headers)
-        assert tickets_resp.status_code == 200
-        tickets = tickets_resp.json()["data"]
-        linked_ticket = next((t for t in tickets if t["session_id"] == session_id), None)
-        assert linked_ticket is not None
-        assert linked_ticket["status"] == "OPEN"
-        assert linked_ticket["assigned_agent_id"] is None
+        # Admin gets all waiting sessions
+        sessions_resp = await client.get("/api/v1/admin/chat-sessions/waiting", headers=admin_headers)
+        assert sessions_resp.status_code == 200
+        sessions = sessions_resp.json()["data"]
+        linked_session = next((s for s in sessions if s["session_id"] == session_id), None)
+        assert linked_session is not None
+        assert linked_session["status"] == "WAITING_HUMAN"
 
         # Admin reads chat history of this session (unrestricted)
         history_resp = await client.get(f"/api/v1/admin/chat-sessions/{session_id}/messages", headers=admin_headers)
@@ -149,12 +148,12 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
         test_session = next((s for s in sessions_resp.json() if s["session_id"] == session_id), None)
         assert test_session["status"] == "HUMAN_ACTIVE"
 
-        # Verify ticket status is now PENDING and assigned_agent_id is set
-        tickets_resp2 = await client.get("/api/v1/admin/support-tickets", headers=admin_headers)
-        tickets2 = tickets_resp2.json()["data"]
-        linked_ticket2 = next((t for t in tickets2 if t["session_id"] == session_id), None)
-        assert linked_ticket2["status"] == "PENDING"
-        assert linked_ticket2["assigned_agent_id"] == admin["user_id"]
+        # Verify session is no longer in WAITING_HUMAN list
+        sessions_resp2 = await client.get("/api/v1/admin/chat-sessions/waiting", headers=admin_headers)
+        assert sessions_resp2.status_code == 200
+        sessions2 = sessions_resp2.json()["data"]
+        linked_session2 = next((s for s in sessions2 if s["session_id"] == session_id), None)
+        assert linked_session2 is None
 
         # Step 5: Verify Agent Tracing document was successfully persisted in MongoDB
         db = get_db()

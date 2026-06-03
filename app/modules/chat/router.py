@@ -59,29 +59,27 @@ async def get_session_history(
 
 # ──────────────────── CSKH Dashboard (Admin) APIs ────────────────────
 
-@router.get("/api/v1/admin/support-tickets", response_model=None)
-async def admin_list_tickets(
-    status: Optional[str] = None,
-    priority: Optional[str] = None,
+@router.get("/api/v1/admin/chat-sessions/waiting", response_model=None)
+async def admin_list_waiting_sessions(
     current_admin: UserResponse = Depends(get_current_admin)
 ):
     """
-    CSKH Dashboard: Lấy danh sách toàn bộ ticket hỗ trợ trong hệ thống (Chỉ dành cho Admin/CSKH).
-    Hỗ trợ bộ lọc status và priority.
+    CSKH Dashboard: Lấy danh sách các phiên chat có trạng thái WAITING_HUMAN (Chỉ dành cho Admin/CSKH).
     """
-    from app.modules.tickets.repository import TicketsRepository
-    tickets = await TicketsRepository.get_all_tickets(status=status, priority=priority)
+    sessions = await chat_service.repository.get_sessions_by_status("WAITING_HUMAN")
     
-    serialized_tickets = []
-    for t in tickets:
-        t_copy = t.copy()
-        if "created_at" in t_copy and hasattr(t_copy["created_at"], "isoformat"):
-            t_copy["created_at"] = t_copy["created_at"].isoformat()
-        serialized_tickets.append(t_copy)
+    serialized_sessions = []
+    for s in sessions:
+        s_copy = s.copy()
+        if "created_at" in s_copy and hasattr(s_copy["created_at"], "isoformat"):
+            s_copy["created_at"] = s_copy["created_at"].isoformat()
+        if "updated_at" in s_copy and hasattr(s_copy["updated_at"], "isoformat"):
+            s_copy["updated_at"] = s_copy["updated_at"].isoformat()
+        serialized_sessions.append(s_copy)
         
     return success_response(
-        data=serialized_tickets,
-        message="Lấy toàn bộ danh sách ticket thành công."
+        data=serialized_sessions,
+        message="Lấy danh sách phiên chat đang chờ CSKH thành công."
     )
 
 @router.get("/api/v1/admin/chat-sessions/{session_id}/messages", response_model=List[ChatMessageResponse])
@@ -110,7 +108,6 @@ async def admin_reply_to_chat(
     """
     CSKH Dashboard: Nhân viên CSKH phản hồi trực tiếp vào phiên chat của khách hàng (Chỉ dành cho Admin/CSKH).
     Ghi tin nhắn vai trò assistant, cập nhật trạng thái session thành HUMAN_ACTIVE.
-    Đồng thời cập nhật các ticket đang OPEN của session_id này sang PENDING và ghi nhận assigned_agent_id.
     """
     session = await chat_service.repository.get_session_by_id(session_id)
     if not session:
@@ -129,109 +126,9 @@ async def admin_reply_to_chat(
     # 2. Cập nhật trạng thái session sang HUMAN_ACTIVE
     await chat_service.repository.update_session_status(session_id, "HUMAN_ACTIVE")
     
-    # 3. Cập nhật trạng thái ticket sang PENDING và gắn assigned_agent_id
-    from app.modules.tickets.repository import TicketsRepository
-    await TicketsRepository.update_tickets_status_by_session_id(
-        session_id=session_id,
-        status="PENDING",
-        assigned_agent_id=current_admin.user_id
-    )
-    
     return success_response(
         data={"session_id": session_id, "status": "HUMAN_ACTIVE"},
         message="Gửi phản hồi CSKH thành công."
-    )
-
-
-# ──────────────────── Advanced CSKH Dashboard Admin APIs ────────────────────
-
-@router.get("/api/v1/admin/support-tickets/{ticket_id}", response_model=None)
-async def admin_get_ticket_detail(
-    ticket_id: str,
-    current_admin: UserResponse = Depends(get_current_admin)
-):
-    """
-    CSKH Dashboard: Xem thông tin chi tiết của một ticket hỗ trợ (Chỉ dành cho Admin/CSKH).
-    """
-    from app.modules.tickets.repository import TicketsRepository
-    ticket = await TicketsRepository.get_ticket_by_id(ticket_id)
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket không tồn tại."
-        )
-    t_copy = ticket.copy()
-    if "created_at" in t_copy and hasattr(t_copy["created_at"], "isoformat"):
-        t_copy["created_at"] = t_copy["created_at"].isoformat()
-    return success_response(
-        data=t_copy,
-        message="Lấy thông tin chi tiết ticket thành công."
-    )
-
-@router.get("/api/v1/admin/support-tickets/{ticket_id}/messages", response_model=List[ChatMessageResponse])
-async def admin_get_ticket_messages(
-    ticket_id: str,
-    current_admin: UserResponse = Depends(get_current_admin)
-):
-    """
-    CSKH Dashboard: Xem toàn bộ lịch sử chat của phiên liên kết với Ticket hỗ trợ (Chỉ dành cho Admin/CSKH).
-    """
-    from app.modules.tickets.repository import TicketsRepository
-    ticket = await TicketsRepository.get_ticket_by_id(ticket_id)
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket không tồn tại."
-        )
-    session_id = ticket.get("session_id")
-    if not session_id:
-        return []
-    return await chat_service.repository.get_history(session_id)
-
-@router.post("/api/v1/admin/support-tickets/{ticket_id}/assign", response_model=None)
-async def admin_assign_ticket(
-    ticket_id: str,
-    request: Optional[AssignAgentRequest] = None,
-    current_admin: UserResponse = Depends(get_current_admin)
-):
-    """
-    CSKH Dashboard: Phân công nhân viên CSKH xử lý ticket (Chỉ dành cho Admin/CSKH).
-    """
-    from app.modules.tickets.repository import TicketsRepository
-    ticket = await TicketsRepository.get_ticket_by_id(ticket_id)
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket không tồn tại."
-        )
-    agent_id = (request.assigned_agent_id if request else None) or current_admin.user_id
-    await TicketsRepository.assign_ticket_agent(ticket_id, agent_id)
-    return success_response(
-        data={"ticket_id": ticket_id, "assigned_agent_id": agent_id},
-        message="Phân công nhân viên xử lý thành công."
-    )
-
-@router.post("/api/v1/admin/support-tickets/{ticket_id}/status", response_model=None)
-async def admin_update_ticket_status(
-    ticket_id: str,
-    request: UpdateTicketStatusRequest,
-    current_admin: UserResponse = Depends(get_current_admin)
-):
-    """
-    CSKH Dashboard: Cập nhật trạng thái xử lý ticket (Chỉ dành cho Admin/CSKH).
-    """
-    from app.modules.tickets.repository import TicketsRepository
-    ticket = await TicketsRepository.get_ticket_by_id(ticket_id)
-    if not ticket:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Ticket không tồn tại."
-        )
-    status_val = request.status.upper()
-    await TicketsRepository.update_ticket_status(ticket_id, status_val)
-    return success_response(
-        data={"ticket_id": ticket_id, "status": status_val},
-        message="Cập nhật trạng thái ticket thành công."
     )
 
 @router.post("/api/v1/admin/chat-sessions/{session_id}/messages", response_model=None)
@@ -242,7 +139,7 @@ async def admin_send_message(
 ):
     """
     CSKH Dashboard: Nhân viên CSKH gửi tin nhắn vào phiên chat (Chỉ dành cho Admin/CSKH).
-    Tự động cập nhật trạng thái session sang HUMAN_ACTIVE và các ticket OPEN sang PENDING.
+    Tự động cập nhật trạng thái session sang HUMAN_ACTIVE.
     """
     session = await chat_service.repository.get_session_by_id(session_id)
     if not session:
@@ -261,14 +158,6 @@ async def admin_send_message(
     
     # 2. Cập nhật trạng thái session sang HUMAN_ACTIVE
     await chat_service.repository.update_session_status(session_id, "HUMAN_ACTIVE")
-    
-    # 3. Cập nhật các ticket OPEN liên quan sang PENDING và ghi nhận assigned_agent_id
-    from app.modules.tickets.repository import TicketsRepository
-    await TicketsRepository.update_tickets_status_by_session_id(
-        session_id=session_id,
-        status="PENDING",
-        assigned_agent_id=current_admin.user_id
-    )
     
     return success_response(
         data={"session_id": session_id, "status": "HUMAN_ACTIVE"},

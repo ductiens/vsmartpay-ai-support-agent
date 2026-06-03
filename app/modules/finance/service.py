@@ -89,6 +89,14 @@ class FinanceService:
         await self.repo.create_user(user_doc)
         logger.info(f"Created user: {user_id}")
 
+        # Automatically create default wallet for new user
+        from app.modules.finance.schema import CreateWalletRequest
+        try:
+            await self.create_wallet(CreateWalletRequest(currency="VND"), user_id=user_id)
+            logger.info(f"Automatically created default wallet for user: {user_id}")
+        except Exception as e:
+            logger.error(f"Failed to auto-create wallet for user {user_id}: {e}")
+
         return UserResponse(
             user_id=user_id,
             full_name=request.full_name,

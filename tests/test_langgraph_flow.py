@@ -133,7 +133,7 @@ async def test_langgraph_grounding_guard_failure(mock_grounding, mock_retrieve, 
 
 @pytest.mark.asyncio
 async def test_langgraph_confidence_escalation_flow(enable_langgraph, client):
-    """5. Verify that sensitive intent (Fraud/Security) triggers escalation and writes support ticket to MongoDB."""
+    """5. Verify that sensitive intent (Fraud/Security) triggers escalation and transitions session status."""
     payload = {
         "session_id": "sess_lg_esc",
         "user_id": "user_lg_04",
@@ -149,18 +149,11 @@ async def test_langgraph_confidence_escalation_flow(enable_langgraph, client):
     assert data["escalation"]["priority"] == "HIGH"
     assert "ghi nhận hỗ trợ trực tiếp từ con người" in data["answer"]
     
-    # Assert ticket was created in tool_calls list
-    ticket_tool = next((tc for tc in data["tool_calls"] if tc["tool_name"] == "create_support_ticket"), None)
-    assert ticket_tool is not None
-    assert ticket_tool["arguments"]["user_id"] == "user_lg_04"
-    assert ticket_tool["arguments"]["issue_type"] in ["FRAUD", "SECURITY"]
-    
-    # Assert support ticket was written in MongoDB
+    # Assert session status is updated to WAITING_HUMAN in MongoDB
     db = get_db()
-    inserted_ticket = await db["escalation_tickets"].find_one({"user_id": "user_lg_04"})
-    assert inserted_ticket is not None
-    assert inserted_ticket["ticket_id"] == ticket_tool["result"]["ticket_id"]
-    assert inserted_ticket["status"] == "OPEN"
+    session = await db["chat_sessions"].find_one({"session_id": "sess_lg_esc"})
+    assert session is not None
+    assert session["status"] == "WAITING_HUMAN"
 
 
 @pytest.mark.asyncio

@@ -113,61 +113,12 @@ async def test_transaction_status_security_constraint(client: AsyncClient):
         assert "không có quyền" in b_resp.json()["answer"] or "no permission" in b_resp.json()["answer"].lower()
 
 @pytest.mark.asyncio
-async def test_admin_ticket_management_apis(client: AsyncClient):
-    """
-    Verifies Admin APIs for viewing ticket detail, listing conversation messages,
-    assigning CSKH agent, and updating status.
-    """
-    user, user_headers = await register_and_login_user(client, "0989999999", "user")
-    admin, admin_headers = await register_and_login_user(client, "0980000000", "admin")
-
-    # Create ticket
-    tkt_resp = await client.post(f"{API_PREFIX}/support/tickets", json={
-        "session_id": "sess_admin_tkt",
-        "priority": "HIGH",
-        "summary": "Tôi bị mất thẻ liên kết"
-    }, headers=user_headers)
-    assert tkt_resp.status_code == 201
-    ticket_id = tkt_resp.json()["data"]["ticket_id"]
-
-    # 1. Admin gets ticket detail
-    detail_resp = await client.get(f"/api/v1/admin/support-tickets/{ticket_id}", headers=admin_headers)
-    assert detail_resp.status_code == 200
-    assert detail_resp.json()["data"]["ticket_id"] == ticket_id
-    assert detail_resp.json()["data"]["status"] == "OPEN"
-
-    # 2. Admin reads ticket chat history
-    msg_resp = await client.get(f"/api/v1/admin/support-tickets/{ticket_id}/messages", headers=admin_headers)
-    assert msg_resp.status_code == 200
-    assert isinstance(msg_resp.json(), list)
-
-    # 3. Admin assigns agent
-    assign_resp = await client.post(f"/api/v1/admin/support-tickets/{ticket_id}/assign", json={
-        "assigned_agent_id": admin["user_id"]
-    }, headers=admin_headers)
-    assert assign_resp.status_code == 200
-    assert assign_resp.json()["data"]["assigned_agent_id"] == admin["user_id"]
-
-    # 4. Admin updates status to RESOLVED
-    status_resp = await client.post(f"/api/v1/admin/support-tickets/{ticket_id}/status", json={
-        "status": "RESOLVED"
-    }, headers=admin_headers)
-    assert status_resp.status_code == 200
-    assert status_resp.json()["data"]["status"] == "RESOLVED"
-
-    # Verify updated detail in DB
-    detail_resp2 = await client.get(f"/api/v1/admin/support-tickets/{ticket_id}", headers=admin_headers)
-    assert detail_resp2.json()["data"]["status"] == "RESOLVED"
-    assert detail_resp2.json()["data"]["assigned_agent_id"] == admin["user_id"]
-
-@pytest.mark.asyncio
 async def test_admin_reply_human_agent_endpoint(client: AsyncClient):
     """
     Verifies POST /api/v1/admin/chat-sessions/{session_id}/messages.
     Checks:
     - Saves message in DB with role="assistant" and sender="HUMAN_AGENT".
     - Automatically updates chat session status to HUMAN_ACTIVE.
-    - Automatically transitions associated OPEN tickets to PENDING.
     """
     user, user_headers = await register_and_login_user(client, "0981112222", "user")
     admin, admin_headers = await register_and_login_user(client, "0983334444", "admin")
@@ -178,7 +129,7 @@ async def test_admin_reply_human_agent_endpoint(client: AsyncClient):
     with patch("app.modules.rag.retriever.RAGRetriever.retrieve", new_callable=AsyncMock) as mock_retrieve:
         mock_retrieve.return_value = mock_chunks
 
-        # Escalation message -> creates OPEN ticket
+        # Escalation message -> sets session status to WAITING_HUMAN
         esc_resp = await client.post("/chat", json={
             "session_id": session_id,
             "message": "Tôi bị mất điện thoại và mất sạch tiền trong ví rồi"
@@ -196,12 +147,6 @@ async def test_admin_reply_human_agent_endpoint(client: AsyncClient):
     sessions_resp = await client.get("/chat/sessions", headers=user_headers)
     test_session = next((s for s in sessions_resp.json() if s["session_id"] == session_id), None)
     assert test_session["status"] == "HUMAN_ACTIVE"
-
-    # Verify ticket is now PENDING and has assigned_agent_id
-    tickets_resp = await client.get("/api/v1/admin/support-tickets", headers=admin_headers)
-    linked_ticket = next((t for t in tickets_resp.json()["data"] if t["session_id"] == session_id), None)
-    assert linked_ticket["status"] == "PENDING"
-    assert linked_ticket["assigned_agent_id"] == admin["user_id"]
 
     # Verify that the message in DB has sender=="HUMAN_AGENT"
     db = get_db()

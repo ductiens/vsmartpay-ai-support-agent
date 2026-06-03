@@ -129,7 +129,7 @@ async def test_chat_fee_tool_call(mock_get_embedding, client):
 @pytest.mark.asyncio
 @patch("app.modules.rag.embeddings.EmbeddingService.get_embedding")
 async def test_chat_escalation_security_keywords(mock_get_embedding, client):
-    """Verify /chat escalates on high-risk keywords (lost money, OTP leak) and saves ticket to MongoDB."""
+    """Verify /chat escalates on high-risk keywords (lost money, OTP leak) and transitions session status."""
     mock_get_embedding.return_value = [0.01] * 1536
     
     payload = {
@@ -147,16 +147,8 @@ async def test_chat_escalation_security_keywords(mock_get_embedding, client):
     assert esc["required"] is True
     assert esc["priority"] == "HIGH"
     
-    # Verify support ticket was created in tool_calls
-    tool_calls = data["tool_calls"]
-    ticket_tool = next((tc for tc in tool_calls if tc["tool_name"] == "create_support_ticket"), None)
-    assert ticket_tool is not None
-    assert ticket_tool["arguments"]["user_id"] == "user_001"
-    assert ticket_tool["arguments"]["issue_type"] in ["FRAUD", "SECURITY"]
-    
-    # Verify ticket was actually inserted into MongoDB 'escalation_tickets' collection
+    # Verify session was updated to WAITING_HUMAN in MongoDB 'chat_sessions' collection
     db = get_db()
-    inserted_ticket = await db["escalation_tickets"].find_one({"user_id": "user_001"})
-    assert inserted_ticket is not None
-    assert inserted_ticket["ticket_id"] == ticket_tool["result"]["ticket_id"]
-    assert inserted_ticket["status"] == "OPEN"
+    session = await db["chat_sessions"].find_one({"session_id": "sess_esc_01"})
+    assert session is not None
+    assert session["status"] == "WAITING_HUMAN"

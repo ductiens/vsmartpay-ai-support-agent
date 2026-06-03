@@ -1,5 +1,4 @@
 from typing import Dict, Any
-from app.modules.tools.financial_tools import create_support_ticket
 from app.modules.escalation.service import EscalationService
 
 async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -54,34 +53,16 @@ async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     )
     priority = esc_info.priority or "MEDIUM"
     
-    # 3. Call tool to create support ticket in MongoDB
-    session_id = state.get("session_id")
-    ticket_data = await create_support_ticket(
-        user_id=user_id,
-        issue_type=issue_type,
-        message=user_message,
-        session_id=session_id,
-        priority=priority
-    )
-    
-    # Save the tool call in tool_calls list
-    tool_calls.append({
-        "tool_name": "create_support_ticket",
-        "arguments": {
-            "user_id": user_id,
-            "issue_type": issue_type,
-            "message": user_message,
-            "session_id": session_id,
-            "priority": priority
-        },
-        "result": ticket_data
-    })
+    # 3. Update session status to WAITING_HUMAN
+    session_id = state.get("session_id") or ""
+    from app.modules.chat.repository import ChatRepository
+    chat_repo = ChatRepository()
+    await chat_repo.update_session_status(session_id, "WAITING_HUMAN")
     
     # 4. Formulate the final escalation answer
     final_answer = (
         f"Chào bạn, yêu cầu của bạn đã được ghi nhận hỗ trợ trực tiếp từ con người. "
-        f"Hệ thống đã tự động tạo một ticket hỗ trợ (mức độ ưu tiên: {priority}) gửi đến bộ phận CSKH "
-        f"với lý do: {escalation_reason or 'Khách hàng yêu cầu hỗ trợ trực tiếp.'}. "
+        f"Cuộc hội thoại đã được chuyển sang trạng thái chờ nhân viên CSKH hỗ trợ. "
         f"Nhân viên hỗ trợ sẽ liên hệ với bạn trong thời gian sớm nhất."
     )
     
@@ -90,8 +71,7 @@ async def run_escalation_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     metadata["escalation"] = {
         "required": True,
         "reason": escalation_reason,
-        "priority": priority,
-        "ticket_id": ticket_data.get("ticket_id")
+        "priority": priority
     }
     
     return {

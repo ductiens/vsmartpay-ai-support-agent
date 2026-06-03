@@ -8,7 +8,6 @@ from app.common.response import success_response
 from app.common.security import get_current_user, create_access_token
 from app.modules.finance.schema import (
     CreateUserRequest,
-    CreateWalletRequest,
     CreateTransactionRequest,
     LoginRequest,
     TokenResponse,
@@ -64,22 +63,6 @@ async def get_user_me(current_user: UserResponse = Depends(get_current_user)):
 
 
 # ──────────────────── Wallets ────────────────────
-
-@router.post("/wallets", status_code=201)
-async def create_wallet(
-    request: CreateWalletRequest,
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """
-    Tạo ví cho người dùng đang đăng nhập (Protected).
-    """
-    wallet = await finance_service.create_wallet(request, current_user.user_id)
-    return success_response(
-        data=wallet.model_dump(),
-        message="Wallet created successfully",
-        status_code=201,
-    )
-
 
 @router.get("/users/me/wallet")
 async def get_wallet_me(current_user: UserResponse = Depends(get_current_user)):

@@ -147,21 +147,5 @@ async def delete_document(doc_id: str):
     return {"success": True, "message": f"Tài liệu {doc_id} và toàn bộ chunk đã được xóa thành công."}
 
 
-@router.post("/{doc_id}/reprocess", response_model=DocStatusResponse)
-async def reprocess_document(doc_id: str):
-    """
-    Xử lý lại tài liệu: xóa toàn bộ chunk cũ, chia chunk mới, tạo embedding mới.
-    Hữu ích khi thay đổi cấu hình chunk_size hoặc embedding model.
-    """
-    result = await doc_service.reprocess_document(doc_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Document not found or has no raw text to reprocess.")
-    
-    return DocStatusResponse(
-        doc_id=result["doc_id"],
-        file_name=result["file_name"],
-        status=result["status"],
-        chunk_count=result.get("chunk_count", 0),
-        error_message=result.get("error_message")
-    )
+
 

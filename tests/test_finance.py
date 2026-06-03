@@ -19,12 +19,12 @@ async def seed_user_and_wallet(
     password: str = "password123"
 ):
     """
-    Helper to create a user + wallet via API, login to get JWT, and optionally deposit balance.
+    Helper to create a user (wallet is auto-created), login to get JWT, and optionally deposit balance.
     Returns (user_data, wallet_data, auth_headers).
     """
     phone = f"09000000{ord(user_id_suffix) % 100:02d}"
     
-    # 1. Register User
+    # 1. Register User (wallet is auto-created here)
     user_resp = await client.post(f"{API_PREFIX}/finance/users", json={
         "full_name": f"Test User {user_id_suffix}",
         "phone": phone,
@@ -44,9 +44,9 @@ async def seed_user_and_wallet(
     access_token = token_data["access_token"]
     headers = {"Authorization": f"Bearer {access_token}"}
 
-    # 3. Create Wallet
-    wallet_resp = await client.post(f"{API_PREFIX}/finance/wallets", json={}, headers=headers)
-    assert wallet_resp.status_code == 201
+    # 3. Get the auto-created wallet
+    wallet_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    assert wallet_resp.status_code == 200
     wallet_data = wallet_resp.json()["data"]
 
     # 4. Deposit initial balance if specified
@@ -186,9 +186,8 @@ async def test_get_user_me_unauthorized(client):
 # ══════════════════════════════════════════════════════════════
 
 @pytest.mark.asyncio
-async def test_create_wallet_success(client):
-    """POST /finance/wallets → Tạo ví thành công cho user đăng nhập."""
-    # Register & Login but do not create wallet yet
+async def test_wallet_auto_created_on_register(client):
+    """POST /finance/users → Wallet auto-created upon registration."""
     phone = "0944333222"
     await client.post(f"{API_PREFIX}/finance/users", json={
         "full_name": "Create Wallet User",
@@ -202,25 +201,13 @@ async def test_create_wallet_success(client):
     token = login_resp.json()["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Create wallet
-    response = await client.post(f"{API_PREFIX}/finance/wallets", json={}, headers=headers)
-    assert response.status_code == 201
+    # Verify wallet was auto-created and can be fetched
+    response = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    assert response.status_code == 200
     data = response.json()["data"]
     assert data["wallet_id"].startswith("wlt_")
     assert data["balance"] == 0
     assert data["status"] == "ACTIVE"
-
-
-@pytest.mark.asyncio
-async def test_create_wallet_duplicate(client):
-    """POST /finance/wallets → 409 nếu user đã có ví."""
-    # seed_user_and_wallet đã tạo sẵn 1 ví
-    _, _, headers = await seed_user_and_wallet(client, "W")
-
-    # Tạo ví lần 2 → duplicate
-    response = await client.post(f"{API_PREFIX}/finance/wallets", json={}, headers=headers)
-    assert response.status_code == 409
-    assert response.json()["error_code"] == "WALLET_ALREADY_EXISTS"
 
 
 @pytest.mark.asyncio

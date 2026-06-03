@@ -136,38 +136,4 @@ async def test_delete_document_not_found(client):
     assert response.status_code == 404
 
 
-@pytest.mark.asyncio
-async def test_reprocess_document(client):
-    """After reprocessing, the document should have updated chunks."""
-    with patch("app.modules.rag.embeddings.EmbeddingService.get_embedding", new_callable=AsyncMock) as mock_emb:
-        mock_emb.return_value = [0.01] * 1536
 
-        file_content = b"Tai lieu de reprocess kiem thu. Noi dung VSmartPay tai lieu huong dan su dung."
-        file_io = io.BytesIO(file_content)
-
-        upload_resp = await client.post(
-            f"{API_PREFIX}/documents/upload",
-            files={"files": ("reprocess_test.txt", file_io, "text/plain")},
-            params={"kb_type": "faq", "category": "ReprocessTest"}
-        )
-        assert upload_resp.status_code == 200
-        doc_id = upload_resp.json()["data"][0]["doc_id"]
-
-        # Wait for background processing to complete
-        import asyncio
-        await asyncio.sleep(2)
-
-        # Reprocess the document
-        reprocess_resp = await client.post(f"{API_PREFIX}/documents/{doc_id}/reprocess")
-        assert reprocess_resp.status_code == 200
-        reprocess_data = reprocess_resp.json()
-        assert reprocess_data["doc_id"] == doc_id
-        assert reprocess_data["status"] == "processed"
-        assert reprocess_data["chunk_count"] > 0
-
-
-@pytest.mark.asyncio
-async def test_reprocess_document_not_found(client):
-    """Reprocessing a non-existent document should return 404."""
-    response = await client.post(f"{API_PREFIX}/documents/nonexistent_doc_id/reprocess")
-    assert response.status_code == 404

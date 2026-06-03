@@ -128,3 +128,20 @@ class ChatRepository:
                     "status": doc.get("status", "BOT_ACTIVE")
                 }
         return None
+
+    async def get_sessions_by_status(self, status: str) -> List[Dict[str, Any]]:
+        """Lấy danh sách các phiên chat theo trạng thái, sắp xếp mới nhất trước."""
+        col = self.sessions_collection
+        if col is not None:
+            cursor = col.find({"status": status}).sort("updated_at", -1)
+            sessions = []
+            async for doc in cursor:
+                sessions.append({
+                    "session_id": doc.get("session_id"),
+                    "user_id": doc.get("user_id"),
+                    "created_at": doc.get("created_at"),
+                    "updated_at": doc.get("updated_at"),
+                    "status": doc.get("status", "BOT_ACTIVE")
+                })
+            return sessions
+        return []
