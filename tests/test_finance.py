@@ -227,10 +227,10 @@ async def test_get_wallet_me(client):
 
 @pytest.mark.asyncio
 async def test_get_balance_after_deposit(client):
-    """GET /finance/users/me/balance → Phản ánh đúng số dư sau khi nạp tiền."""
+    """GET /finance/users/me/wallet → Phản ánh đúng số dư sau khi nạp tiền."""
     _, _, headers = await seed_user_and_wallet(client, "B", balance=1000000)
 
-    response = await client.get(f"{API_PREFIX}/finance/users/me/balance", headers=headers)
+    response = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["balance"] == 1000000
@@ -260,7 +260,7 @@ async def test_deposit_success(client):
     assert data["fee"] == 0
 
     # Verify balance
-    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/balance", headers=headers)
+    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
     assert balance_resp.json()["data"]["balance"] == 500000
 
 
@@ -285,7 +285,7 @@ async def test_withdrawal_success(client):
     assert data["fee"] == 1100
 
     # Verify balance: 1,000,000 - 200,000 - 1,100 = 798,900
-    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/balance", headers=headers)
+    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
     assert balance_resp.json()["data"]["balance"] == 798900
 
 
@@ -330,11 +330,11 @@ async def test_transfer_success(client):
     assert data["fee"] == 0
 
     # Verify sender balance: 1,000,000 - 200,000 = 800,000
-    sender_bal = await client.get(f"{API_PREFIX}/finance/users/me/balance", headers=sender_headers)
+    sender_bal = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=sender_headers)
     assert sender_bal.json()["data"]["balance"] == 800000
 
     # Verify recipient balance: 500,000 + 200,000 = 700,000
-    recipient_bal = await client.get(f"{API_PREFIX}/finance/users/me/balance", headers=recipient_headers)
+    recipient_bal = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=recipient_headers)
     assert recipient_bal.json()["data"]["balance"] == 700000
 
 

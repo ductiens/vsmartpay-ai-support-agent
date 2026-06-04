@@ -61,13 +61,11 @@ async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
         finance_service = FinanceService()
         
         try:
-            balance_data = await finance_service.get_balance(user_id)
-            # Fetch wallet metadata for status
             wallet_data = await finance_service.get_wallet_by_user(user_id)
             return {
-                "user_id": balance_data.user_id,
-                "balance": balance_data.balance,
-                "currency": balance_data.currency,
+                "user_id": wallet_data.user_id,
+                "balance": wallet_data.balance,
+                "currency": wallet_data.currency,
                 "status": wallet_data.status
             }
         except NotFoundException:

@@ -73,13 +73,6 @@ async def get_wallet_me(current_user: UserResponse = Depends(get_current_user)):
     return success_response(data=wallet.model_dump())
 
 
-@router.get("/users/me/balance")
-async def get_balance_me(current_user: UserResponse = Depends(get_current_user)):
-    """
-    Lấy số dư ví của người dùng đang đăng nhập (Protected).
-    """
-    balance = await finance_service.get_balance(current_user.user_id)
-    return success_response(data=balance.model_dump())
 
 
 # ──────────────────── Transactions ────────────────────

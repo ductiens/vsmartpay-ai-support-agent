@@ -66,12 +66,7 @@ class WalletResponse(BaseModel):
     created_at: datetime
 
 
-class BalanceResponse(BaseModel):
-    """Simplified balance response for quick lookup."""
-    user_id: str
-    wallet_id: str
-    balance: int
-    currency: str = "VND"
+
 
 
 class TransactionResponse(BaseModel):

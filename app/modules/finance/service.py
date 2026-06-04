@@ -27,7 +27,6 @@ from app.modules.finance.schema import (
     CreateTransactionRequest,
     UserResponse,
     WalletResponse,
-    BalanceResponse,
     TransactionResponse,
     TransactionListResponse,
     FeeResponse,
@@ -197,20 +196,7 @@ class FinanceService:
             )
         return WalletResponse(**wallet)
 
-    async def get_balance(self, user_id: str) -> BalanceResponse:
-        """Lấy số dư ví đơn giản."""
-        wallet = await self.repo.get_wallet_by_user_id(user_id)
-        if wallet is None:
-            raise NotFoundException(
-                message=f"Ví của user '{user_id}' không tồn tại",
-                error_code="WALLET_NOT_FOUND",
-            )
-        return BalanceResponse(
-            user_id=user_id,
-            wallet_id=wallet["wallet_id"],
-            balance=wallet["balance"],
-            currency=wallet["currency"],
-        )
+
 
     # ──────────────────── Transactions ────────────────────
 
