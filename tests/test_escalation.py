@@ -43,13 +43,25 @@ async def test_escalation_context_insufficient():
     service = EscalationService()
     res = await service.evaluate_escalation(
         user_id="usr_01",
-        last_message="Tôi muốn biết chính sách bảo hiểm của đối tác ví",
-        intent="FAQ_GENERAL",
+        last_message="Tôi muốn biết hạn mức của ví",
+        intent="LIMIT_INQUIRY",
         confidence=0.9,
         context_insufficient=True # Insufficient chunks retrieved
     )
     assert res.required is True
     assert res.priority == "LOW"
+
+@pytest.mark.asyncio
+async def test_no_escalation_context_insufficient_for_normal_intent():
+    service = EscalationService()
+    res = await service.evaluate_escalation(
+        user_id="usr_01",
+        last_message="Tôi muốn biết chính sách bảo hiểm của đối tác ví",
+        intent="FAQ_GENERAL",
+        confidence=0.9,
+        context_insufficient=True # Insufficient chunks retrieved
+    )
+    assert res.required is False
 
 @pytest.mark.asyncio
 async def test_escalation_out_of_scope():

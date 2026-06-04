@@ -77,9 +77,18 @@ class EscalationPolicy:
             return True, f"Độ tin cậy phân loại ý định thấp ({confidence} < 0.6).", "LOW"
 
         # 5. Retrieved context is insufficient
-        tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
-        if context_insufficient and intent not in tool_only_intents:
-            return True, "Tài liệu hướng dẫn hiện tại không đủ thông tin để trả lời câu hỏi.", "LOW"
+        sensitive_intents = {
+            "TRANSFER_GUIDE",
+            "FEE_INQUIRY",
+            "LIMIT_INQUIRY",
+            "ACCOUNT_SECURITY",
+            "FAILED_TRANSACTION",
+            "REFUND_OR_DISPUTE",
+            "FRAUD_OR_SCAM_REPORT",
+            "HUMAN_SUPPORT_REQUEST"
+        }
+        if context_insufficient and intent in sensitive_intents:
+            return True, "Tài liệu hướng dẫn hiện tại không đủ thông tin để trả lời câu hỏi nhạy cảm.", "LOW"
 
         # 6. Question is OUT_OF_SCOPE
         if intent == "OUT_OF_SCOPE":

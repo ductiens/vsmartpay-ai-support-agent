@@ -3,7 +3,7 @@ from typing import Optional
 from app.modules.tools.schema import BalanceResponse, TransactionDetail
 from app.modules.tools.service import ToolService
 
-router = APIRouter(prefix="/tools", tags=["Financial Tools"])
+router = APIRouter(prefix="/tools", tags=["Financial Tools"], include_in_schema=False)
 tool_service = ToolService()
 
 @router.get("/balance/{user_id}", response_model=BalanceResponse)
