@@ -22,10 +22,17 @@ async def register_and_login_user(client: AsyncClient, phone: str, role: str = "
         "phone": phone,
         "email": f"user_{phone}@example.com",
         "password": "password123",
-        "role": role
     })
     assert user_resp.status_code == 201
     user_data = user_resp.json()["data"]
+
+    if role != "user":
+        db = get_db()
+        await db["users"].update_one(
+            {"user_id": user_data["user_id"]},
+            {"$set": {"role": role}}
+        )
+        user_data["role"] = role
 
     login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
         "phone": phone,

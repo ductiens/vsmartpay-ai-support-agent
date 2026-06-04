@@ -20,7 +20,7 @@ class ChatRepository:
             return db["chat_messages"]
         return None
 
-    async def log_session(self, session_id: str, user_id: Optional[str] = None):
+    async def log_session(self, session_id: str, user_id: Optional[str] = None, title: Optional[str] = None):
         """Log or update metadata of a chat session."""
         col = self.sessions_collection
         if col is not None:
@@ -29,14 +29,20 @@ class ChatRepository:
             if user_id is not None:
                 set_dict["user_id"] = user_id
                 
+            on_insert_dict = {
+                "created_at": utc_now,
+                "status": "BOT_ACTIVE"
+            }
+            if title is not None:
+                on_insert_dict["title"] = title
+            else:
+                on_insert_dict["title"] = "Hội thoại mới"
+
             await col.update_one(
                 {"session_id": session_id},
                 {
                     "$set": set_dict,
-                    "$setOnInsert": {
-                        "created_at": utc_now,
-                        "status": "BOT_ACTIVE"
-                    }
+                    "$setOnInsert": on_insert_dict
                 },
                 upsert=True
             )
@@ -109,7 +115,8 @@ class ChatRepository:
                     "user_id": doc.get("user_id"),
                     "created_at": doc.get("created_at"),
                     "updated_at": doc.get("updated_at"),
-                    "status": doc.get("status", "BOT_ACTIVE")
+                    "status": doc.get("status", "BOT_ACTIVE"),
+                    "title": doc.get("title", "Hội thoại mới")
                 })
             return sessions
         return []
@@ -125,7 +132,8 @@ class ChatRepository:
                     "user_id": doc.get("user_id"),
                     "created_at": doc.get("created_at"),
                     "updated_at": doc.get("updated_at"),
-                    "status": doc.get("status", "BOT_ACTIVE")
+                    "status": doc.get("status", "BOT_ACTIVE"),
+                    "title": doc.get("title", "Hội thoại mới")
                 }
         return None
 
@@ -141,7 +149,8 @@ class ChatRepository:
                     "user_id": doc.get("user_id"),
                     "created_at": doc.get("created_at"),
                     "updated_at": doc.get("updated_at"),
-                    "status": doc.get("status", "BOT_ACTIVE")
+                    "status": doc.get("status", "BOT_ACTIVE"),
+                    "title": doc.get("title", "Hội thoại mới")
                 })
             return sessions
         return []

@@ -14,7 +14,6 @@ class CreateUserRequest(BaseModel):
     phone: str = Field(..., min_length=10, max_length=15, examples=["0987654321"])
     email: Optional[str] = Field(None, max_length=200, examples=["vana@example.com"])
     password: str = Field(..., min_length=6, max_length=100, examples=["password123"])
-    role: Optional[str] = Field("user", examples=["user", "admin"])
 
 
 class CreateWalletRequest(BaseModel):

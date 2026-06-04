@@ -130,8 +130,15 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     request_id = f"req_{generate_id()}"
     repository = ChatRepository()
     
+    if not request.session_id:
+        request.session_id = f"sess_{generate_id()}"
+
+    title_val = request.message
+    if len(title_val) > 40:
+        title_val = title_val[:40] + "..."
+
     # Step 1: Log session and user message in MongoDB
-    await repository.log_session(request.session_id, request.user_id)
+    await repository.log_session(request.session_id, request.user_id, title=title_val)
     await repository.log_message(
         session_id=request.session_id,
         role="user",
@@ -252,6 +259,7 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     )
     
     return ChatResponse(
+        session_id=request.session_id,
         answer=answer,
         intent=intent,
         confidence=confidence,

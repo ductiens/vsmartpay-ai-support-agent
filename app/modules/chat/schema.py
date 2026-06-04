@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class ChatRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     message: str
     _user_id: Optional[str] = PrivateAttr(default=None)
 
@@ -32,6 +32,7 @@ class EscalationDetail(BaseModel):
     priority: Optional[str] = None
 
 class ChatResponse(BaseModel):
+    session_id: str
     answer: str
     intent: str
     confidence: float
@@ -45,6 +46,7 @@ class ChatSessionResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     status: str = "BOT_ACTIVE"
+    title: Optional[str] = None
 
 class AdminChatMessageRequest(BaseModel):
     message: str
