@@ -5,9 +5,6 @@
 ---
 
 ## 🗺️ 1. Kiến trúc Hệ thống (System Architecture)
-
-Hệ thống cung cấp cơ chế xử lý song song hai luồng xử lý hội thoại (Legacy RAG Pipeline & Multi-Agent LangGraph Orchestration), dễ dàng bật tắt qua cấu hình `USE_LANGGRAPH`.
-
 ### Luồng hoạt động của dự án sử dụng LangGraph (Flowchart)
 ```mermaid
 flowchart TD
@@ -55,38 +52,6 @@ flowchart TD
     U --> V["LLM hoặc fallback answer"]
     V --> W["Lưu assistant message vào MongoDB"]
     W --> X["Trả ChatResponse"]
-```
-
-### Luồng hoạt động của dự án sử dụng LangChain
-```mermaid
-graph TD
-    A[Client Request /chat] --> B[JWT Authentication]
-    B --> C[Lấy user_id từ JWT]
-    C --> D{USE_LANGGRAPH?}
-
-    D -- True --> E[LangGraph Workflow]
-    E --> Z[Return ChatResponse]
-
-    D -- False --> F[Custom ChatService Pipeline]
-    F --> G[Log Session & User Message vào MongoDB]
-    G --> H[Classify Intent]
-    H --> I[Retrieve RAG Context]
-    I --> J[Call Mock Tools nếu cần]
-    J --> K[Evaluate Escalation]
-    K --> L[Create Support Ticket nếu cần]
-    L --> M{Có OpenAI API Key?}
-
-    M -- Không --> N[Local Fallback Answer]
-    M -- Có --> O[LangChain LCEL Chain]
-
-    O --> P[ChatPromptTemplate]
-    P --> Q[ChatOpenAI]
-    Q --> R[StrOutputParser]
-    R --> S[Final Answer]
-
-    N --> T[Log Assistant Message vào MongoDB]
-    S --> T
-    T --> Z[Return ChatResponse]
 ```
 
 ---
@@ -182,11 +147,9 @@ Kết quả so sánh side-by-side giữa luồng **Legacy RAG** và **Multi-Agen
 
 Hệ thống cung cấp các tham số tùy chỉnh linh hoạt trong tệp `.env`:
 
-*   `USE_LANGGRAPH`: Thiết lập `True` để kích hoạt luồng điều phối đa tác nhân LangGraph; `False` để chạy luồng Legacy RAG truyền thống.
+*   Luồng điều phối đa tác nhân LangGraph.
 *   `VECTOR_STORE`: Cấu hình kho lưu trữ vector.
     *   `atlas`: Sử dụng cơ sở dữ liệu MongoDB Atlas Vector Search (Tự động fallback sang tính toán cosine similarity cục bộ sử dụng NumPy nếu chạy trên môi trường MongoDB Community cục bộ).
-    *   `faiss`: Sử dụng thư viện FAISS lưu trữ vector chỉ mục dưới dạng tệp tin nhị phân trên bộ nhớ cục bộ.
-*   `VECTOR_STORE_PATH`: Đường dẫn lưu tệp tin FAISS (`vector_store/faiss_index`).
 *   `MONGODB_URL`: Chuỗi kết nối MongoDB (hỗ trợ cả Atlas và Local).
 *   `DATABASE_NAME`: Tên cơ sở dữ liệu lưu trữ lịch sử hội thoại, tài liệu và support tickets.
 *   `OPENAI_API_KEY`: Mã khóa API OpenAI kết nối LLM và tạo embeddings.
@@ -293,9 +256,6 @@ pytest tests/test_langgraph_flow.py -v
 ```bash
 python scripts/run_eval.py
 ```
-Kết quả đánh giá chi tiết sẽ tự động được xuất ra hai tệp tin:
-*   Báo cáo dạng trực quan Markdown: [reports/eval_report.md](file:///d:/VinFast/VSF\Fintech\Industry\vsmartpay-ai-support-agent/reports/eval_report.md)
-*   Dữ liệu thô JSON: [reports/eval_metrics.json](file:///d:/VinFast/VSF\Fintech\Industry\vsmartpay-ai-support-agent/reports/eval_metrics.json)
 
 ---
 
