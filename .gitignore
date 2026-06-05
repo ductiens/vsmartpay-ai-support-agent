@@ -84,3 +84,11 @@ cover/
 pyrightconfig.json
 
 topic.md
+
+scripts/build_vector_index.py
+scripts/create_admin.py
+scripts/ingest_kb.py
+scripts/reset_db.py
+scripts/run_eval.py
+scripts/seed_finance_data.py
+scripts/seed_mock_data.py
