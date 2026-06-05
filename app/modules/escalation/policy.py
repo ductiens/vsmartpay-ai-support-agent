@@ -74,7 +74,9 @@ class EscalationPolicy:
 
         # 4. Confidence score is below threshold (< 0.6)
         if confidence < 0.6:
-            return True, f"Độ tin cậy phân loại ý định thấp ({confidence} < 0.6).", "LOW"
+            high_risk_escalate_intents = ["ACCOUNT_SECURITY", "FRAUD_OR_SCAM_REPORT", "FAILED_TRANSACTION", "REFUND_OR_DISPUTE", "HUMAN_SUPPORT_REQUEST"]
+            if intent in high_risk_escalate_intents:
+                return True, f"Độ tin cậy phân loại ý định thấp ({confidence} < 0.6) đối với sự cố nhạy cảm.", "LOW"
 
         # 5. Retrieved context is insufficient
         sensitive_intents = {

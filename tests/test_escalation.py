@@ -33,10 +33,21 @@ async def test_escalation_low_confidence():
         user_id="usr_01",
         last_message="Một tin nhắn mông lung",
         intent="FAQ_GENERAL",
-        confidence=0.4 # below 0.6 threshold
+        confidence=0.4 # below 0.6 threshold but not high risk
+    )
+    assert res.required is False
+
+@pytest.mark.asyncio
+async def test_escalation_low_confidence_high_risk():
+    service = EscalationService()
+    res = await service.evaluate_escalation(
+        user_id="usr_01",
+        last_message="Trợ giúp tài khoản của tôi",
+        intent="ACCOUNT_SECURITY",
+        confidence=0.4 # below 0.6 threshold and high risk
     )
     assert res.required is True
-    assert res.priority == "LOW"
+    assert res.priority == "HIGH"
 
 @pytest.mark.asyncio
 async def test_escalation_context_insufficient():

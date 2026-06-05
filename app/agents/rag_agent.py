@@ -17,7 +17,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     
     # 1. Retrieve relevant chunks using RAGRetriever with scoping filters
     tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
-    if intent in tool_only_intents:
+    if intent in tool_only_intents or intent == "BOT_IDENTITY":
         retrieved_chunks = []
     else:
         retriever = RAGRetriever()
@@ -59,7 +59,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         retrieval_filter["agent_scope"] = agent_scope
     if kb_type:
         retrieval_filter["kb_type"] = kb_type
-
+ 
     # 2. Build draft answer using OpenAI or local fallback
     tool_calls = state.get("tool_calls", [])
     
@@ -91,14 +91,23 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 transaction_type = arguments.get("transaction_type")
                 amount = arguments.get("amount")
         tool_context += "---------------------------------------\n\n"
-
-    context_str = "\n\n".join(context_parts) if context_parts else "Không tìm thấy thông tin phù hợp trong tài liệu hướng dẫn."
+ 
+    if intent in tool_only_intents or intent == "BOT_IDENTITY":
+        context_str = ""
+    else:
+        context_str = "\n\n".join(context_parts) if context_parts else "Không tìm thấy thông tin phù hợp trong tài liệu hướng dẫn."
     
     api_key = settings.OPENAI_API_KEY
     model = settings.OPENAI_MODEL
     draft_answer = ""
     
-    if not api_key or api_key == "your_openai_api_key_here":
+    if intent == "BOT_IDENTITY":
+        draft_answer = (
+            "Chào bạn, tôi là trợ lý ảo hỗ trợ khách hàng của ví điện tử VSmartPay. "
+            "Tôi có thể hỗ trợ bạn các vấn đề liên quan đến ví như kiểm tra số dư, tra cứu lịch sử giao dịch, "
+            "giải đáp thắc mắc về biểu phí, hạn mức giao dịch, hoặc hướng dẫn liên kết thẻ ngân hàng."
+        )
+    elif not api_key or api_key == "your_openai_api_key_here":
         # Fallback answers based on tool results or retrieved chunks
         if intent == "BALANCE_INQUIRY" and balance_data:
             draft_answer = f"Chào bạn, số dư khả dụng hiện tại trong tài khoản ví VSmartPay của bạn là {balance_data.get('balance', 0):,} {balance_data.get('currency', 'VND')}."
@@ -140,10 +149,16 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 "3. Nếu thông tin trong tài liệu và hệ thống ví giả lập không đủ để trả lời câu hỏi, hoặc cần chuyển giao cho bộ phận CSKH, hãy thông báo rõ ràng rằng yêu cầu đã được ghi nhận hỗ trợ trực tiếp.\n"
             )
             
+            doc_context_section = ""
+            if context_str:
+                doc_context_section = (
+                    f"--- Ngữ cảnh tài liệu ---\n"
+                    f"{context_str}\n"
+                    f"---------------------------\n\n"
+                )
+                
             user_prompt = (
-                f"--- Ngữ cảnh tài liệu ---\n"
-                f"{context_str}\n"
-                f"---------------------------\n\n"
+                f"{doc_context_section}"
                 f"{tool_context}"
                 f"Câu hỏi của khách hàng: {user_message}\n"
                 f"Phản hồi của bạn:"

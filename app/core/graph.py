@@ -47,9 +47,11 @@ def route_decision(state: SupportAgentState) -> Literal["escalation", "clarifica
         return "clarification"
         
     if confidence < 0.6:
-        # Sensitive security, fraud, or transaction related inquiries get escalated
-        sensitive_intents = ["BALANCE_INQUIRY", "TRANSACTION_STATUS", "FEE_INQUIRY", "ACCOUNT_SECURITY", "FRAUD_OR_SCAM_REPORT"]
-        if intent in sensitive_intents:
+        # Only escalate if it's a high-risk security or fraud issue.
+        # Queries like BALANCE_INQUIRY, FEE_INQUIRY, TRANSACTION_HISTORY, or TRANSACTION_STATUS
+        # can ask for clarification or proceed if their confidence is low, and should NOT be force-escalated.
+        high_risk_escalate_intents = ["ACCOUNT_SECURITY", "FRAUD_OR_SCAM_REPORT", "FAILED_TRANSACTION", "REFUND_OR_DISPUTE"]
+        if intent in high_risk_escalate_intents:
             return "escalation"
         return "clarification"
         

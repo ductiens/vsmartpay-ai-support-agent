@@ -4,6 +4,7 @@ class IntentTaxonomy(str, Enum):
     # General & Out of Scope
     FAQ_GENERAL = "FAQ_GENERAL"
     OUT_OF_SCOPE = "OUT_OF_SCOPE"
+    BOT_IDENTITY = "BOT_IDENTITY"
 
     # Wallet Inquiries & Operations
     TRANSFER_GUIDE = "TRANSFER_GUIDE"

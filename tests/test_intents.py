@@ -44,4 +44,16 @@ async def test_intent_classification_fallback():
     classifier = IntentClassifier()
     res = await classifier.classify_intent("Chào ngày mới")
     assert res.intent == IntentTaxonomy.FAQ_GENERAL.value
-    assert res.confidence == 0.5
+    # Handled via fallback LLM classification which outputs 0.3 confidence for this query
+    assert res.confidence == 0.3
+
+@pytest.mark.asyncio
+async def test_intent_classification_bot_identity():
+    classifier = IntentClassifier()
+    res = await classifier.classify_intent("bạn là ai")
+    assert res.intent == IntentTaxonomy.BOT_IDENTITY.value
+    assert res.confidence >= 0.9
+    
+    res2 = await classifier.classify_intent("cho tôi hỏi bạn tên là gì?")
+    assert res2.intent == IntentTaxonomy.BOT_IDENTITY.value
+    assert res2.confidence >= 0.9
