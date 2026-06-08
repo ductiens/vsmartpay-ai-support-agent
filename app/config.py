@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # OpenAI & RAG Configs
     OPENAI_API_KEY: str = ""
-    OPENAI_MODEL: str = "gpt-4.1-mini"
+    OPENAI_MODEL: str = "gpt-4o-mini"
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     VECTOR_STORE_PATH: str = "vector_store/faiss_index"
     MONGODB_VECTOR_INDEX_NAME: str = "vector_index"
@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     VECTOR_STORE: str = "faiss"
     CHUNK_SIZE: int = 800
     CHUNK_OVERLAP: int = 100
+
+    # Agent
+    LLM_AGENT_ENABLED: bool = True
+    LLM_AGENT_FALLBACK_TO_RULES: bool = True
 
 
 
