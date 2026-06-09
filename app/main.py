@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
             logger.info("Database connected successfully during startup.")
             # Ensure Vector Search indexes exist on Atlas
             vector_store = VectorStoreService()
-            await vector_store.ensure_vector_search_index()
+            await vector_store.ensure_search_indexes()
             # Ensure Finance collection indexes
             await FinanceRepository.ensure_indexes()
     except Exception as e:

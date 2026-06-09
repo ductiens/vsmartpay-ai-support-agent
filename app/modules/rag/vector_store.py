@@ -8,6 +8,7 @@ from app.modules.rag.schema import DocumentChunk
 class VectorStoreService:
     def __init__(self):
         self.index_name = settings.MONGODB_VECTOR_INDEX_NAME
+        self.keyword_index_name = settings.MONGODB_KEYWORD_INDEX_NAME
 
     @property
     def collection(self):
@@ -16,9 +17,9 @@ class VectorStoreService:
             return db["knowledge_chunks"]
         return None
 
-    async def ensure_vector_search_index(self):
+    async def ensure_search_indexes(self):
         """
-        Attempt to create a search index on Atlas.
+        Attempt to create a vector search index and a keyword search index on Atlas.
         Fails silently with warning on local/non-Atlas MongoDB deployments.
         """
         col = self.collection
@@ -28,7 +29,7 @@ class VectorStoreService:
         try:
             if hasattr(col, "create_search_index"):
                 # Standard KNN vector index configuration
-                index_definition = {
+                vector_index_definition = {
                     "mappings": {
                         "dynamic": True,
                         "fields": {
@@ -41,10 +42,22 @@ class VectorStoreService:
                     }
                 }
                 await col.create_search_index(
-                    definition=index_definition,
+                    definition=vector_index_definition,
                     name=self.index_name
                 )
                 print(f"MongoDB Vector Search index '{self.index_name}' successfully created or verified.")
+
+                # Keyword Search index configuration
+                keyword_index_definition = {
+                    "mappings": {
+                        "dynamic": True
+                    }
+                }
+                await col.create_search_index(
+                    definition=keyword_index_definition,
+                    name=self.keyword_index_name
+                )
+                print(f"MongoDB Keyword Search index '{self.keyword_index_name}' successfully created or verified.")
         except Exception as e:
             # Atlas Search Index creation is only supported on MongoDB Atlas.
             # Local MongoDB community instances will raise an exception; we log and pass.
@@ -207,6 +220,159 @@ class VectorStoreService:
         # Sort descending by similarity score
         search_results.sort(key=lambda x: x[1], reverse=True)
         return search_results[:top_k]
+
+    async def keyword_search(
+        self,
+        query: str,
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[DocumentChunk, float]]:
+        """
+        Perform keyword text search using Atlas Search or fallback to regex.
+        """
+        col = self.collection
+        if col is None:
+            return []
+
+        # 1. Atlas Keyword Search ($search pipeline)
+        pipeline: List[Dict[str, Any]] = [
+            {
+                "$search": {
+                    "index": self.keyword_index_name,
+                    "text": {
+                        "query": query,
+                        "path": "content"
+                    }
+                }
+            },
+            {
+                "$limit": top_k
+            },
+            {
+                "$addFields": {
+                    "searchScore": {"$meta": "searchScore"}
+                }
+            }
+        ]
+
+        # Apply filtering if supported
+        if filter_dict:
+            pipeline.insert(2, {"$match": filter_dict})
+
+        try:
+            cursor = col.aggregate(pipeline)
+            results = []
+            async for doc in cursor:
+                score = doc.get("searchScore", 1.0)
+                chunk = DocumentChunk(
+                    id=doc.get("chunk_id", ""),
+                    text=doc.get("content", ""),
+                    metadata={
+                        "source": doc.get("file_name", ""),
+                        "category": doc.get("category", ""),
+                        "page": doc.get("page"),
+                        "heading": doc.get("heading"),
+                        "agent_scope": doc.get("agent_scope"),
+                        "kb_type": doc.get("kb_type"),
+                        "language": doc.get("language")
+                    },
+                    score=score
+                )
+                results.append((chunk, score))
+            if results:
+                return results[:top_k]
+        except Exception as e:
+            print(f"Atlas $search failed or unsupported: {e}. Falling back to manual regex search.")
+
+        # 2. Local Fallback (Regex search)
+        import re
+        query_criteria = {}
+        if filter_dict:
+            for key, val in filter_dict.items():
+                if isinstance(val, dict) and "$eq" in val:
+                    query_criteria[key] = val["$eq"]
+                else:
+                    query_criteria[key] = val
+
+        query_criteria["content"] = {"$regex": re.escape(query), "$options": "i"}
+
+        cursor = col.find(query_criteria).limit(top_k)
+        results = []
+        async for doc in cursor:
+            score = 1.0 # fallback score
+            chunk = DocumentChunk(
+                id=doc.get("chunk_id", ""),
+                text=doc.get("content", ""),
+                metadata={
+                    "source": doc.get("file_name", ""),
+                    "category": doc.get("category", ""),
+                    "page": doc.get("page"),
+                    "heading": doc.get("heading"),
+                    "agent_scope": doc.get("agent_scope"),
+                    "kb_type": doc.get("kb_type"),
+                    "language": doc.get("language")
+                },
+                score=score
+            )
+            results.append((chunk, score))
+        return results
+
+    def _rrf_merge(
+        self,
+        vector_results: List[Tuple[DocumentChunk, float]],
+        keyword_results: List[Tuple[DocumentChunk, float]],
+        top_k: int = 5,
+        k: int = 60
+    ) -> List[Tuple[DocumentChunk, float]]:
+        """
+        Merge two lists of search results using Reciprocal Rank Fusion (RRF).
+        """
+        rrf_scores: Dict[str, float] = {}
+        chunk_map: Dict[str, DocumentChunk] = {}
+
+        for rank, (chunk, _) in enumerate(vector_results):
+            cid = chunk.id if chunk.id else str(hash(chunk.text))
+            if cid not in rrf_scores:
+                rrf_scores[cid] = 0.0
+                chunk_map[cid] = chunk
+            rrf_scores[cid] += 1.0 / (k + rank + 1)
+
+        for rank, (chunk, _) in enumerate(keyword_results):
+            cid = chunk.id if chunk.id else str(hash(chunk.text))
+            if cid not in rrf_scores:
+                rrf_scores[cid] = 0.0
+                chunk_map[cid] = chunk
+            rrf_scores[cid] += 1.0 / (k + rank + 1)
+
+        sorted_results = sorted(rrf_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        merged_results = []
+        for chunk_id, score in sorted_results[:top_k]:
+            normalized_score = min(1.0, score * (k + 1) / 2.0)
+            chunk = chunk_map[chunk_id]
+            chunk.score = normalized_score
+            merged_results.append((chunk, normalized_score))
+
+        return merged_results
+
+    async def hybrid_search(
+        self,
+        query: str,
+        query_embedding: List[float],
+        top_k: int = 5,
+        filter_dict: Optional[Dict[str, Any]] = None
+    ) -> List[Tuple[DocumentChunk, float]]:
+        """
+        Perform hybrid search by combining vector search and keyword search.
+        """
+        import asyncio
+        vector_task = self.search(query_embedding, top_k * 2, filter_dict)
+        keyword_task = self.keyword_search(query, top_k * 2, filter_dict)
+
+        vector_results, keyword_results = await asyncio.gather(vector_task, keyword_task)
+        
+        return self._rrf_merge(vector_results, keyword_results, top_k)
+
 
     def _load_faiss_index(self):
         if hasattr(self, "_faiss_index") and getattr(self, "_faiss_index") is not None:

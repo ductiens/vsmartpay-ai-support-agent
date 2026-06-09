@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "text-embedding-3-small"
     VECTOR_STORE_PATH: str = "vector_store/faiss_index"
     MONGODB_VECTOR_INDEX_NAME: str = "vector_index"
+    MONGODB_KEYWORD_INDEX_NAME: str = "keyword_index"
     TOP_K: int = 5
     USE_LANGGRAPH: bool = True
     VECTOR_STORE: str = "faiss"
