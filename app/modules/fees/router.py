@@ -2,13 +2,14 @@
 FastAPI router for Fees module.
 """
 from fastapi import APIRouter, Query
-from app.common.response import success_response
+from app.common.response import success_response, BaseSuccessResponse
 from app.modules.fees.service import FeesService
+from app.modules.fees.schema import FeeResponse
 
 router = APIRouter(prefix="/fees", tags=["Fees"])
 fees_service = FeesService()
 
-@router.get("")
+@router.get("", response_model=BaseSuccessResponse[FeeResponse])
 async def get_fees(
     type: str = Query(..., description="Loại giao dịch: DEPOSIT, WITHDRAWAL, TRANSFER"),
     amount: int = Query(..., gt=0, description="Số tiền giao dịch (VND)"),

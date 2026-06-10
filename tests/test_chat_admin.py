@@ -110,7 +110,7 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
         # Verify session status is BOT_ACTIVE
         sessions_resp = await client.get("/chat/sessions", headers=user_headers)
         assert sessions_resp.status_code == 200
-        sessions_data = sessions_resp.json()
+        sessions_data = sessions_resp.json().get("data", sessions_resp.json())
         test_session = next((s for s in sessions_data if s["session_id"] == session_id), None)
         assert test_session is not None
         assert test_session["status"] == "BOT_ACTIVE"
@@ -121,11 +121,11 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
             "message": "Tôi bị mất tiền lừa đảo, tài khoản ví bị hack rồi"
         }, headers=user_headers)
         assert esc_resp.status_code == 200
-        assert esc_resp.json()["escalation"]["required"] is True
+        assert esc_resp.json()["data"]["escalation"]["required"] is True
 
         # Verify session status is now WAITING_HUMAN
         sessions_resp = await client.get("/chat/sessions", headers=user_headers)
-        test_session = next((s for s in sessions_resp.json() if s["session_id"] == session_id), None)
+        test_session = next((s for s in sessions_resp.json().get("data", sessions_resp.json()) if s["session_id"] == session_id), None)
         assert test_session["status"] == "WAITING_HUMAN"
 
         # Step 3: CSKH Dashboard APIs
@@ -140,7 +140,7 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
         # Admin reads chat history of this session (unrestricted)
         history_resp = await client.get(f"/api/v1/admin/chat-sessions/{session_id}/messages", headers=admin_headers)
         assert history_resp.status_code == 200
-        history = history_resp.json()
+        history = history_resp.json().get("data", history_resp.json())
         assert len(history) >= 2
 
         # Step 4: Admin replies to chat
@@ -152,7 +152,7 @@ async def test_chat_session_status_transitions_and_admin_flow(client: AsyncClien
 
         # Verify session status is now HUMAN_ACTIVE
         sessions_resp = await client.get("/chat/sessions", headers=user_headers)
-        test_session = next((s for s in sessions_resp.json() if s["session_id"] == session_id), None)
+        test_session = next((s for s in sessions_resp.json().get("data", sessions_resp.json()) if s["session_id"] == session_id), None)
         assert test_session["status"] == "HUMAN_ACTIVE"
 
         # Verify session is no longer in WAITING_HUMAN list

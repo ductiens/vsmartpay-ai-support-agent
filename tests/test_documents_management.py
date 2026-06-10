@@ -18,7 +18,7 @@ async def test_list_documents_empty(client):
     response = await client.get(f"{API_PREFIX}/documents/")
     assert response.status_code == 200
     data = response.json()
-    assert isinstance(data, list)
+    assert isinstance(data["data"], list)
 
 
 @pytest.mark.asyncio
@@ -41,7 +41,7 @@ async def test_list_documents_after_upload(client):
         # Now list documents
         list_resp = await client.get(f"{API_PREFIX}/documents/")
         assert list_resp.status_code == 200
-        docs = list_resp.json()
+        docs = list_resp.json()["data"]
         doc_ids = [d["doc_id"] for d in docs]
         assert doc_id in doc_ids
 
@@ -75,7 +75,7 @@ async def test_view_chunks_after_upload(client):
         # View chunks
         chunks_resp = await client.get(f"{API_PREFIX}/documents/{doc_id}/chunks")
         assert chunks_resp.status_code == 200
-        chunks = chunks_resp.json()
+        chunks = chunks_resp.json()["data"]
         assert isinstance(chunks, list)
         assert len(chunks) > 0
         

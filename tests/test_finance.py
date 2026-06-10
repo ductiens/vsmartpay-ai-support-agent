@@ -75,7 +75,7 @@ async def test_register_user_success(client):
         "password": "password123",
     })
     assert response.status_code == 201
-    body = response.json()
+    body = response.json().get("data", response.json())
     assert body["success"] is True
     data = body["data"]
     assert data["user_id"].startswith("usr_")
@@ -120,7 +120,7 @@ async def test_login_success(client):
         "password": "password123",
     })
     assert response.status_code == 200
-    body = response.json()
+    body = response.json().get("data", response.json())
     assert body["success"] is True
     data = body["data"]
     assert "access_token" in data

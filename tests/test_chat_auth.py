@@ -85,14 +85,14 @@ async def test_chat_flow_and_history_success(client):
     }, headers=headers_a)
     
     assert chat_resp.status_code == 200
-    data = chat_resp.json()
+    data = chat_resp.json().get("data", chat_resp.json())
     assert "answer" in data
     assert data["intent"] == "BALANCE_INQUIRY"
     
     # 3. List sessions
     sessions_resp = await client.get("/chat/sessions", headers=headers_a)
     assert sessions_resp.status_code == 200
-    sessions = sessions_resp.json()
+    sessions = sessions_resp.json().get("data", sessions_resp.json())
     assert len(sessions) > 0
     assert sessions[0]["session_id"] == session_id
     assert sessions[0]["user_id"] == user_a["user_id"]
@@ -100,7 +100,7 @@ async def test_chat_flow_and_history_success(client):
     # 4. View history
     history_resp = await client.get(f"/chat/sessions/{session_id}/history", headers=headers_a)
     assert history_resp.status_code == 200
-    history = history_resp.json()
+    history = history_resp.json().get("data", history_resp.json())
     assert len(history) >= 2 # User message + assistant response
     assert history[0]["role"] == "user"
     assert history[0]["content"] == "Tôi muốn kiểm tra số dư ví"

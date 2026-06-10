@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock
 async def test_health_endpoint(client):
     response = await client.get("/health")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["status"] == "ok"
     assert data["service"] == "VSmartPay AI Support Agent"
 
@@ -35,7 +35,7 @@ async def test_chat_endpoint_success(mock_chat_create, mock_get_embedding, clien
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
     
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert "answer" in data
     assert "Hạn mức giao dịch tối đa" in data["answer"]
     assert data["intent"] == "LIMIT_INQUIRY" # Matches keyword 'hạn mức'
@@ -66,7 +66,7 @@ async def test_chat_endpoint_escalation_fraud(mock_chat_create, mock_get_embeddi
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
     
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["intent"] == "FRAUD_OR_SCAM_REPORT" # Matches keywords
     assert data["escalation"]["required"] is True
     assert data["escalation"]["priority"] == "HIGH"
@@ -76,7 +76,7 @@ async def test_chat_endpoint_escalation_fraud(mock_chat_create, mock_get_embeddi
 async def test_tools_balance_endpoint(client):
     response = await client.get("/tools/balance/usr_001")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["user_id"] == "usr_001"
     assert data["balance"] == 2500000
     assert data["currency"] == "VND"
@@ -86,7 +86,7 @@ async def test_tools_balance_endpoint(client):
 async def test_tools_transactions_endpoint(client):
     response = await client.get("/tools/transactions/tx_001")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transaction_id"] == "tx_001"
     assert data["amount"] == 100000
     assert data["status"] == "SUCCESS"
@@ -96,7 +96,7 @@ async def test_tools_transactions_endpoint(client):
 async def test_tools_fees_endpoint(client):
     response = await client.get("/tools/fees")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transfer_fee"] == 0
     assert data["withdrawal_fee"] == 1100
     assert data["deposit_fee"] == 0
@@ -108,7 +108,7 @@ async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
     mock_get_tx_by_id.return_value = None
     response = await client.get("/tools/transactions/non_existent_tx_id")
     assert response.status_code == 404
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["success"] is False
     assert data["error_code"] == "RESOURCE_NOT_FOUND"
 
@@ -119,6 +119,6 @@ async def test_tools_balance_not_found(mock_get_wallet, client):
     mock_get_wallet.return_value = None
     response = await client.get("/tools/balance/non_existent_user_id")
     assert response.status_code == 404
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["success"] is False
     assert data["error_code"] == "RESOURCE_NOT_FOUND"

@@ -23,7 +23,7 @@ async def test_langgraph_injection_guard(enable_langgraph, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     
     # Assert blocked response
     assert "Phát hiện hành vi không hợp lệ" in data["answer"]
@@ -42,7 +42,7 @@ async def test_langgraph_tool_routing_balance(enable_langgraph, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     
     assert data["intent"] == "BALANCE_INQUIRY"
     assert data["confidence"] == 0.95
@@ -122,7 +122,7 @@ async def test_langgraph_grounding_guard_failure(mock_grounding, mock_retrieve, 
     try:
         response = await client.post("/chat", json=payload)
         assert response.status_code == 200
-        data = response.json()
+        data = response.json().get("data", response.json())
         
         # Should route to clarification agent
         assert data["escalation"]["required"] is False
@@ -142,7 +142,7 @@ async def test_langgraph_confidence_escalation_flow(enable_langgraph, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     
     # Assert escalation details
     assert data["escalation"]["required"] is True
@@ -168,7 +168,7 @@ async def test_langgraph_rag_optimization_tool_only(mock_retrieve, enable_langgr
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     
     assert data["intent"] == "BALANCE_INQUIRY"
     assert len(data["tool_calls"]) > 0

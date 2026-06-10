@@ -7,7 +7,7 @@ async def test_tools_balance_mock_wallet(client):
     """Verify GET /tools/balance/{user_id} returns the correct user_001 mock data."""
     response = await client.get("/tools/balance/user_001")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["user_id"] == "user_001"
     assert data["balance"] == 2500000
     assert data["currency"] == "VND"
@@ -19,7 +19,7 @@ async def test_tools_transactions_mock_wallet(client):
     # txn_001 (SUCCESS)
     response = await client.get("/tools/transactions/txn_001")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transaction_id"] == "txn_001"
     assert data["status"] == "SUCCESS"
     assert data["amount"] == 100000
@@ -27,14 +27,14 @@ async def test_tools_transactions_mock_wallet(client):
     # txn_002 (PENDING)
     response = await client.get("/tools/transactions/txn_002")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transaction_id"] == "txn_002"
     assert data["status"] == "PENDING"
     
     # txn_003 (FAILED)
     response = await client.get("/tools/transactions/txn_003")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transaction_id"] == "txn_003"
     assert data["status"] == "FAILED"
 
@@ -44,7 +44,7 @@ async def test_tools_fees_mock_wallet(client):
     """Verify GET /tools/fees?transaction_type=TRANSFER&amount=500000 returns correct fee info."""
     response = await client.get("/tools/fees?transaction_type=TRANSFER&amount=500000")
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["transaction_type"] == "TRANSFER"
     assert data["amount"] == 500000
     assert data["fee"] == 0
@@ -65,7 +65,7 @@ async def test_chat_balance_tool_call(mock_get_embedding, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert "answer" in data
     assert data["intent"] == "BALANCE_INQUIRY"
     
@@ -91,7 +91,7 @@ async def test_chat_transaction_status_tool_call(mock_get_embedding, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["intent"] == "TRANSACTION_STATUS"
     
     tool_calls = data["tool_calls"]
@@ -115,7 +115,7 @@ async def test_chat_fee_tool_call(mock_get_embedding, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     assert data["intent"] == "FEE_INQUIRY"
     
     tool_calls = data["tool_calls"]
@@ -140,7 +140,7 @@ async def test_chat_escalation_security_keywords(mock_get_embedding, client):
     
     response = await client.post("/chat", json=payload)
     assert response.status_code == 200
-    data = response.json()
+    data = response.json().get("data", response.json())
     
     # Check escalation detail in response
     esc = data["escalation"]

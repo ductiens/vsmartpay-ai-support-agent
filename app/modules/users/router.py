@@ -2,7 +2,7 @@
 FastAPI router for Users module.
 """
 from fastapi import APIRouter, Depends
-from app.common.response import success_response
+from app.common.response import success_response, BaseSuccessResponse
 from app.common.security import get_current_user
 from app.modules.users.schema import CreateUserRequest, UserResponse
 from app.modules.users.service import UsersService
@@ -10,7 +10,7 @@ from app.modules.users.service import UsersService
 router = APIRouter(prefix="/users", tags=["Users"])
 users_service = UsersService()
 
-@router.post("", response_model=UserResponse, status_code=201)
+@router.post("", response_model=BaseSuccessResponse[UserResponse], status_code=201)
 async def register(request: CreateUserRequest):
     """
     Đăng ký người dùng demo mới (Public).
@@ -23,7 +23,7 @@ async def register(request: CreateUserRequest):
         status_code=201,
     )
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=BaseSuccessResponse[UserResponse])
 async def get_user_me(current_user: UserResponse = Depends(get_current_user)):
     """
     Lấy thông tin tài khoản đang đăng nhập (Protected).

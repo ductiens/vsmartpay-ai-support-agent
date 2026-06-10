@@ -36,9 +36,9 @@ async def test_upload_txt_file_success(client):
         status_response = await client.get(f"/api/v1/documents/{doc_id}/status")
         assert status_response.status_code == 200
         status_data = status_response.json()
-        assert status_data["doc_id"] == doc_id
-        assert status_data["file_name"] == "test_doc.txt"
-        assert status_data["status"] in ["processing", "processed"]
+        assert status_data["data"]["doc_id"] == doc_id
+        assert status_data["data"]["file_name"] == "test_doc.txt"
+        assert status_data["data"]["status"] in ["processing", "processed"]
 
 
 @pytest.mark.asyncio

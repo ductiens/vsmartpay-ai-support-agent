@@ -92,3 +92,5 @@ scripts/reset_db.py
 scripts/run_eval.py
 scripts/seed_finance_data.py
 scripts/seed_mock_data.py
+
+scratch_fix.py
