@@ -82,7 +82,8 @@ class IntentClassifier:
         if api_key and api_key != "your_openai_api_key_here":
             try:
                 from openai import AsyncOpenAI
-                client = AsyncOpenAI(api_key=api_key)
+                from langsmith.wrappers import wrap_openai
+                client = wrap_openai(AsyncOpenAI(api_key=api_key))
                 
                 # List of valid intents for prompt instruction
                 intents_list = [enum.value for enum in IntentTaxonomy]

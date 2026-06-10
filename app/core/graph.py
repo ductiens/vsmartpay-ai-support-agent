@@ -17,7 +17,7 @@ from app.core.nodes import (
 )
 from app.modules.chat.schema import ChatRequest, ChatResponse, ChatSource, EscalationDetail
 from app.modules.chat.repository import ChatRepository
-from app.common.utils import generate_id, now_utc
+from app.common.utils import generate_id, now_utc, hash_user_id, mask_pii_in_message
 
 logger = logging.getLogger(__name__)
 
@@ -148,11 +148,14 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     )
     
     # Step 2: Initialize state parameters
+    masked_message = mask_pii_in_message(request.message)
+    hashed_user_id = hash_user_id(request.user_id)
+    
     initial_state = {
         "session_id": request.session_id,
         "user_id": request.user_id,
-        "user_message": request.message,
-        "normalized_message": request.message.strip(),
+        "user_message": masked_message,
+        "normalized_message": masked_message.strip(),
         "intent": "FAQ_GENERAL",
         "retrieved_chunks": [],
         "retrieval_score": 0.0,
@@ -175,7 +178,15 @@ async def execute_graph(request: ChatRequest) -> ChatResponse:
     }
     
     # Step 3: Run compiled graph
-    final_state = await graph.ainvoke(initial_state)
+    run_config = {
+        "run_name": "VSmartPay_Chat_Flow",
+        "tags": ["chat"],
+        "metadata": {
+            "session_id": request.session_id,
+            "user_id": hashed_user_id,
+        }
+    }
+    final_state = await graph.ainvoke(initial_state, config=run_config)
     
     # Extract output fields
     answer = final_state.get("final_answer", "")

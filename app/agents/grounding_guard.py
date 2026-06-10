@@ -38,7 +38,8 @@ async def run_grounding_guard(state: Dict[str, Any]) -> Dict[str, Any]:
         
     try:
         from openai import AsyncOpenAI
-        client = AsyncOpenAI(api_key=api_key)
+        from langsmith.wrappers import wrap_openai
+        client = wrap_openai(AsyncOpenAI(api_key=api_key))
         
         # Prepare context representation including metadata
         chunks_str = ""

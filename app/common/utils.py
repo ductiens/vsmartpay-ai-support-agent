@@ -42,3 +42,36 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     except Exception:
         return False
 
+import hashlib
+import re
+
+def hash_user_id(user_id: str | None) -> str:
+    """Hash the user ID for anonymized tracing."""
+    if not user_id:
+        return "anonymous"
+    return hashlib.sha256(user_id.encode('utf-8')).hexdigest()[:16]
+
+def mask_pii_in_message(message: str) -> str:
+    """Mask potential PII (like card numbers, OTPs, emails) from user messages."""
+    if not message:
+        return message
+        
+    # Mask 16-digit card numbers (allowing spaces/dashes)
+    card_pattern = r'\b(?:\d[ -]*?){13,16}\b'
+    def mask_card(match):
+        val = match.group(0).replace('-', '').replace(' ', '')
+        if len(val) >= 16:
+            return f"****-****-****-{val[-4:]}"
+        return "****"
+    
+    masked = re.sub(card_pattern, mask_card, message)
+    
+    # Mask 4 to 6 digit OTP codes if explicitly mentioned near "otp"
+    otp_pattern = r'(?i)(?:\botp\b.*?\b)(\d{4,6})\b'
+    masked = re.sub(otp_pattern, r'OTP: ***', masked)
+    
+    # Mask email addresses
+    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+    masked = re.sub(email_pattern, r'***@***.***', masked)
+
+    return masked

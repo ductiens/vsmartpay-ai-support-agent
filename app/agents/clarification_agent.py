@@ -22,7 +22,8 @@ async def run_clarification_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     else:
         try:
             from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=api_key)
+            from langsmith.wrappers import wrap_openai
+            client = wrap_openai(AsyncOpenAI(api_key=api_key))
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn khách hàng ảo của ví điện tử VSmartPay.\n"

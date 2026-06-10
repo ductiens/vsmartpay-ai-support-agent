@@ -61,4 +61,19 @@ class Settings(BaseSettings):
                 return []
         return v
 
+    # LangSmith Configuration
+    LANGSMITH_TRACING: bool = False
+    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
+    LANGSMITH_API_KEY: str | None = None
+    LANGSMITH_PROJECT: str = "vsmartpay-ai-support-agent"
+
 settings = Settings()
+
+import os
+if settings.LANGSMITH_TRACING:
+    os.environ["LANGSMITH_TRACING"] = "true"
+    os.environ["LANGSMITH_ENDPOINT"] = settings.LANGSMITH_ENDPOINT
+    if settings.LANGSMITH_API_KEY:
+        os.environ["LANGSMITH_API_KEY"] = settings.LANGSMITH_API_KEY
+    if settings.LANGSMITH_PROJECT:
+        os.environ["LANGSMITH_PROJECT"] = settings.LANGSMITH_PROJECT
