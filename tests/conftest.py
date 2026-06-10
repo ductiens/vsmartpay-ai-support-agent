@@ -11,6 +11,8 @@ from app.main import app
 
 # Set VECTOR_STORE to atlas during tests to query the isolated test MongoDB database (local manual search fallback)
 settings.VECTOR_STORE = "atlas"
+settings.OPENAI_API_KEY = "your_openai_api_key_here"
+settings.LANGSMITH_TRACING = False
 
 TEST_DATABASE_NAME = "vsmartpay_test"
 
@@ -103,20 +105,20 @@ async def client(test_db):
 
     from fastapi import Request
     from app.common.security import get_current_user
-    from app.modules.finance.schema import UserResponse
+    from app.modules.users.schema import UserResponse
 
     async def override_get_current_user(request: Request):
         auth_header = request.headers.get("Authorization")
         if auth_header and "Bearer bad_token_here" not in auth_header:
             from jose import jwt
             from app.config import settings
-            from app.modules.finance.repository import FinanceRepository
+            from app.modules.users.repository import UsersRepository
             try:
                 token = auth_header.split(" ")[1]
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
                 user_id = payload.get("sub")
                 if user_id:
-                    user = await FinanceRepository.get_user_by_id(user_id)
+                    user = await UsersRepository.get_user_by_id(user_id)
                     if user:
                         return UserResponse(**user)
             except Exception:

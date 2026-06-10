@@ -21,7 +21,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         retrieved_chunks = []
     else:
         retriever = RAGRetriever()
-        retrieved_chunks = await retriever.retrieve(
+        retrieved_chunks = await retriever.retrieve(  # type: ignore
             query=user_message,
             top_k=settings.TOP_K,
             agent_scope=agent_scope,
@@ -122,6 +122,8 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 draft_answer = f"Chào bạn, mã giao dịch {transaction_id} của bạn có trạng thái là: **{status_vi}**. Số tiền giao dịch: {txn_data.get('amount', 0):,} {txn_data.get('currency', 'VND')}."
                 if txn_data["status"] in ["FAILED", "PENDING"]:
                     draft_answer += f" Vì giao dịch đang có trạng thái {status_vi}, hệ thống đã tự động tạo yêu cầu chuyển giao cho bộ phận CSKH để hỗ trợ bạn ngay lập tức."
+            elif txn_data and "error" in txn_data:
+                draft_answer = txn_data["error"]
             else:
                 draft_answer = f"Chào bạn, hệ thống ví không tìm thấy thông tin cho mã giao dịch {transaction_id or 'đã nhập'}. Bạn vui lòng kiểm tra chính xác mã giao dịch."
         elif intent == "FEE_INQUIRY" and fee_data:

@@ -17,7 +17,7 @@ async def register_and_login_user(client: AsyncClient, phone: str, role: str = "
     """
     Helper to register a user with custom role and log in to get a JWT access token.
     """
-    user_resp = await client.post(f"{API_PREFIX}/finance/users", json={
+    user_resp = await client.post(f"{API_PREFIX}/users", json={
         "full_name": f"User {phone}",
         "phone": phone,
         "email": f"user_{phone}@example.com",
@@ -34,7 +34,7 @@ async def register_and_login_user(client: AsyncClient, phone: str, role: str = "
         )
         user_data["role"] = role
 
-    login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
+    login_resp = await client.post(f"{API_PREFIX}/login", json={
         "phone": phone,
         "password": "password123",
     })
@@ -87,10 +87,10 @@ async def test_transaction_status_security_constraint(client: AsyncClient):
     user_b, headers_b = await register_and_login_user(client, "0988888888", "user")
     
     # Create wallet for User A to perform deposit
-    await client.post(f"{API_PREFIX}/finance/wallets", json={"currency": "VND"}, headers=headers_a)
+    await client.post(f"{API_PREFIX}/wallets", json={"currency": "VND"}, headers=headers_a)
     
     # User A deposits money
-    dep_resp = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    dep_resp = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "DEPOSIT",
         "description": "Nạp tiền User A"

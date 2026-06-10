@@ -3,14 +3,15 @@ from app.modules.rag.schema import DocumentChunk
 from app.modules.rag.embeddings import EmbeddingService
 from app.modules.rag.vector_store import VectorStoreService
 
-from langsmith import traceable
+# TODO: Uncomment the import and decorator below once the langsmith nested async bug is fixed
+# from langsmith import traceable
 
 class RAGRetriever:
     def __init__(self):
         self.embedding_service = EmbeddingService()
         self.vector_store = VectorStoreService()
 
-    @traceable(run_type="retriever")
+    # @traceable(run_type="retriever")
     async def retrieve(
         self, 
         query: str, 

@@ -56,12 +56,12 @@ async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
     Falls back to wallets.json if DB is not available or user wallet is not found.
     """
     try:
-        from app.modules.finance.service import FinanceService
+        from app.modules.wallets.service import WalletsService
         from app.common.exceptions import NotFoundException
-        finance_service = FinanceService()
+        wallets_service = WalletsService()
         
         try:
-            wallet_data = await finance_service.get_wallet_by_user(user_id)
+            wallet_data = await wallets_service.get_wallet_by_user(user_id)
             return {
                 "user_id": wallet_data.user_id,
                 "balance": wallet_data.balance,
@@ -82,8 +82,9 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
     get_fee(transaction_type, amount) - Returns fee info based on FinanceService static fee calculation.
     """
     try:
-        from app.modules.finance.service import FinanceService
-        fee = FinanceService.calculate_fee(transaction_type, amount)
+        from app.modules.fees.service import FeesService
+        fees_service = FeesService()
+        fee = fees_service.calculate_fee(transaction_type, amount)
     except Exception as e:
         logger.warning(f"get_fee via FinanceService failed, falling back to local logic: {e}")
         fee = 1100 if transaction_type.upper() == "WITHDRAWAL" else 0
@@ -103,9 +104,9 @@ async def get_transaction_status(transaction_id: str, user_id: Optional[str] = N
     Falls back to reading transactions.json if DB is not available.
     """
     try:
-        from app.modules.finance.service import FinanceService
-        finance_service = FinanceService()
-        txn = await finance_service.repo.get_transaction_by_id(transaction_id)
+        from app.modules.transactions.service import TransactionsService
+        transactions_service = TransactionsService()
+        txn = await transactions_service.repo.get_transaction_by_id(transaction_id)
         if txn is not None:
             # Security check: transaction ownership (only if user_id is provided)
             if user_id is not None and txn.get("user_id") != user_id and txn.get("recipient_user_id") != user_id:
@@ -140,12 +141,12 @@ async def get_transaction_history(user_id: str, limit: int = 10) -> List[Dict[st
     Falls back to reading transactions.json if DB is not available.
     """
     try:
-        from app.modules.finance.service import FinanceService
+        from app.modules.transactions.service import TransactionsService
         from app.common.exceptions import NotFoundException
-        finance_service = FinanceService()
+        transactions_service = TransactionsService()
         
         try:
-            history_data = await finance_service.get_transaction_history(user_id, limit=limit, skip=0)
+            history_data = await transactions_service.get_transaction_history(user_id, limit=limit, skip=0)
             result = []
             for txn in history_data.transactions:
                 result.append({
@@ -174,12 +175,12 @@ async def get_user_kyc_status(user_id: str) -> str:
     Falls back to reading users.json if DB is not available.
     """
     try:
-        from app.modules.finance.service import FinanceService
+        from app.modules.users.service import UsersService
         from app.common.exceptions import NotFoundException
-        finance_service = FinanceService()
+        users_service = UsersService()
         
         try:
-            user_data = await finance_service.get_user(user_id)
+            user_data = await users_service.get_user(user_id)
             return user_data.kyc_status
         except NotFoundException:
             pass

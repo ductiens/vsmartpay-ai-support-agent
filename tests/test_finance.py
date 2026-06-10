@@ -25,7 +25,7 @@ async def seed_user_and_wallet(
     phone = f"09000000{ord(user_id_suffix) % 100:02d}"
     
     # 1. Register User (wallet is auto-created here)
-    user_resp = await client.post(f"{API_PREFIX}/finance/users", json={
+    user_resp = await client.post(f"{API_PREFIX}/users", json={
         "full_name": f"Test User {user_id_suffix}",
         "phone": phone,
         "email": f"test_{user_id_suffix.lower()}@example.com",
@@ -35,7 +35,7 @@ async def seed_user_and_wallet(
     user_data = user_resp.json()["data"]
 
     # 2. Login to get Access Token
-    login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
+    login_resp = await client.post(f"{API_PREFIX}/login", json={
         "phone": phone,
         "password": password,
     })
@@ -45,13 +45,13 @@ async def seed_user_and_wallet(
     headers = {"Authorization": f"Bearer {access_token}"}
 
     # 3. Get the auto-created wallet
-    wallet_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    wallet_resp = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert wallet_resp.status_code == 200
     wallet_data = wallet_resp.json()["data"]
 
     # 4. Deposit initial balance if specified
     if balance > 0:
-        deposit_resp = await client.post(f"{API_PREFIX}/finance/transactions", json={
+        deposit_resp = await client.post(f"{API_PREFIX}/transactions", json={
             "amount": balance,
             "type": "DEPOSIT",
             "description": "Seed balance",
@@ -67,8 +67,8 @@ async def seed_user_and_wallet(
 
 @pytest.mark.asyncio
 async def test_register_user_success(client):
-    """POST /finance/users → Đăng ký người dùng demo thành công."""
-    response = await client.post(f"{API_PREFIX}/finance/users", json={
+    """POST /users → Đăng ký người dùng demo thành công."""
+    response = await client.post(f"{API_PREFIX}/users", json={
         "full_name": "Nguyễn Văn Test",
         "phone": "0999888777",
         "email": "vantest@example.com",
@@ -88,34 +88,34 @@ async def test_register_user_success(client):
 
 @pytest.mark.asyncio
 async def test_register_user_duplicate_phone(client):
-    """POST /finance/users → 409 nếu trùng số điện thoại."""
+    """POST /users → 409 nếu trùng số điện thoại."""
     req_body = {
         "full_name": "Trùng Số ĐT",
         "phone": "0911222333",
         "password": "password123",
     }
     # Lần 1
-    resp1 = await client.post(f"{API_PREFIX}/finance/users", json=req_body)
+    resp1 = await client.post(f"{API_PREFIX}/users", json=req_body)
     assert resp1.status_code == 201
     
     # Lần 2 → trùng
-    resp2 = await client.post(f"{API_PREFIX}/finance/users", json=req_body)
+    resp2 = await client.post(f"{API_PREFIX}/users", json=req_body)
     assert resp2.status_code == 409
     assert resp2.json()["error_code"] == "PHONE_ALREADY_EXISTS"
 
 
 @pytest.mark.asyncio
 async def test_login_success(client):
-    """POST /finance/login → Đăng nhập thành công trả về JWT Token."""
+    """POST /login → Đăng nhập thành công trả về JWT Token."""
     # Register first
-    await client.post(f"{API_PREFIX}/finance/users", json={
+    await client.post(f"{API_PREFIX}/users", json={
         "full_name": "Đăng Nhập Thành Công",
         "phone": "0988777666",
         "password": "password123",
     })
 
     # Login
-    response = await client.post(f"{API_PREFIX}/finance/login", json={
+    response = await client.post(f"{API_PREFIX}/login", json={
         "phone": "0988777666",
         "password": "password123",
     })
@@ -130,16 +130,16 @@ async def test_login_success(client):
 
 @pytest.mark.asyncio
 async def test_login_invalid_credentials(client):
-    """POST /finance/login → 400 nếu sai mật khẩu hoặc tài khoản không tồn tại."""
+    """POST /login → 400 nếu sai mật khẩu hoặc tài khoản không tồn tại."""
     # Register first
-    await client.post(f"{API_PREFIX}/finance/users", json={
+    await client.post(f"{API_PREFIX}/users", json={
         "full_name": "Sai Mật Khẩu",
         "phone": "0977666555",
         "password": "correct_password",
     })
 
     # Login với mật khẩu sai
-    resp1 = await client.post(f"{API_PREFIX}/finance/login", json={
+    resp1 = await client.post(f"{API_PREFIX}/login", json={
         "phone": "0977666555",
         "password": "wrong_password",
     })
@@ -147,7 +147,7 @@ async def test_login_invalid_credentials(client):
     assert resp1.json()["error_code"] == "INVALID_CREDENTIALS"
 
     # Login với tài khoản không tồn tại
-    resp2 = await client.post(f"{API_PREFIX}/finance/login", json={
+    resp2 = await client.post(f"{API_PREFIX}/login", json={
         "phone": "0900000999",
         "password": "some_password",
     })
@@ -157,10 +157,10 @@ async def test_login_invalid_credentials(client):
 
 @pytest.mark.asyncio
 async def test_get_user_me_success(client):
-    """GET /finance/users/me → Lấy thông tin user hiện tại qua JWT."""
+    """GET /users/me → Lấy thông tin user hiện tại qua JWT."""
     user_data, _, headers = await seed_user_and_wallet(client, "U")
 
-    response = await client.get(f"{API_PREFIX}/finance/users/me", headers=headers)
+    response = await client.get(f"{API_PREFIX}/users/me", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["user_id"] == user_data["user_id"]
@@ -169,13 +169,13 @@ async def test_get_user_me_success(client):
 
 @pytest.mark.asyncio
 async def test_get_user_me_unauthorized(client):
-    """GET /finance/users/me → 401 Unauthorized nếu không gửi token hoặc token lỗi."""
-    response = await client.get(f"{API_PREFIX}/finance/users/me")
+    """GET /users/me → 401 Unauthorized nếu không gửi token hoặc token lỗi."""
+    response = await client.get(f"{API_PREFIX}/users/me")
     assert response.status_code == 401
     
     # Token sai định dạng
     response_bad_token = await client.get(
-        f"{API_PREFIX}/finance/users/me", 
+        f"{API_PREFIX}/users/me", 
         headers={"Authorization": "Bearer bad_token_here"}
     )
     assert response_bad_token.status_code == 401
@@ -187,14 +187,14 @@ async def test_get_user_me_unauthorized(client):
 
 @pytest.mark.asyncio
 async def test_wallet_auto_created_on_register(client):
-    """POST /finance/users → Wallet auto-created upon registration."""
+    """POST /users → Wallet auto-created upon registration."""
     phone = "0944333222"
-    await client.post(f"{API_PREFIX}/finance/users", json={
+    await client.post(f"{API_PREFIX}/users", json={
         "full_name": "Create Wallet User",
         "phone": phone,
         "password": "password123",
     })
-    login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
+    login_resp = await client.post(f"{API_PREFIX}/login", json={
         "phone": phone,
         "password": "password123",
     })
@@ -202,7 +202,7 @@ async def test_wallet_auto_created_on_register(client):
     headers = {"Authorization": f"Bearer {token}"}
 
     # Verify wallet was auto-created and can be fetched
-    response = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    response = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["wallet_id"].startswith("wlt_")
@@ -212,10 +212,10 @@ async def test_wallet_auto_created_on_register(client):
 
 @pytest.mark.asyncio
 async def test_get_wallet_me(client):
-    """GET /finance/users/me/wallet → Xem ví của chính mình."""
+    """GET /users/me/wallet → Xem ví của chính mình."""
     _, wallet_data, headers = await seed_user_and_wallet(client, "G")
 
-    response = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    response = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["wallet_id"] == wallet_data["wallet_id"]
@@ -227,10 +227,10 @@ async def test_get_wallet_me(client):
 
 @pytest.mark.asyncio
 async def test_get_balance_after_deposit(client):
-    """GET /finance/users/me/wallet → Phản ánh đúng số dư sau khi nạp tiền."""
+    """GET /users/me/wallet → Phản ánh đúng số dư sau khi nạp tiền."""
     _, _, headers = await seed_user_and_wallet(client, "B", balance=1000000)
 
-    response = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    response = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["balance"] == 1000000
@@ -243,11 +243,11 @@ async def test_get_balance_after_deposit(client):
 
 @pytest.mark.asyncio
 async def test_deposit_success(client):
-    """POST /finance/transactions DEPOSIT → Balance ví tăng."""
+    """POST /transactions DEPOSIT → Balance ví tăng."""
     _, _, headers = await seed_user_and_wallet(client, "D")
 
     # Deposit 500,000 VND
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 500000,
         "type": "DEPOSIT",
         "description": "Nạp tiền ví điện tử",
@@ -260,7 +260,7 @@ async def test_deposit_success(client):
     assert data["fee"] == 0
 
     # Verify balance
-    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    balance_resp = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert balance_resp.json()["data"]["balance"] == 500000
 
 
@@ -270,11 +270,11 @@ async def test_deposit_success(client):
 
 @pytest.mark.asyncio
 async def test_withdrawal_success(client):
-    """POST /finance/transactions WITHDRAWAL → Balance giảm bao gồm phí."""
+    """POST /transactions WITHDRAWAL → Balance giảm bao gồm phí."""
     _, _, headers = await seed_user_and_wallet(client, "R", balance=1000000)
 
     # Withdraw 200,000 VND (phí cố định 1,100 VND)
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 200000,
         "type": "WITHDRAWAL",
         "description": "Rút tiền về tài khoản ngân hàng",
@@ -285,16 +285,16 @@ async def test_withdrawal_success(client):
     assert data["fee"] == 1100
 
     # Verify balance: 1,000,000 - 200,000 - 1,100 = 798,900
-    balance_resp = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=headers)
+    balance_resp = await client.get(f"{API_PREFIX}/users/me/wallet", headers=headers)
     assert balance_resp.json()["data"]["balance"] == 798900
 
 
 @pytest.mark.asyncio
 async def test_withdrawal_insufficient_balance(client):
-    """POST /finance/transactions WITHDRAWAL → 400 nếu số dư không đủ."""
+    """POST /transactions WITHDRAWAL → 400 nếu số dư không đủ."""
     _, _, headers = await seed_user_and_wallet(client, "I", balance=5000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "WITHDRAWAL",
     }, headers=headers)
@@ -309,13 +309,13 @@ async def test_withdrawal_insufficient_balance(client):
 @pytest.mark.asyncio
 async def test_transfer_success(client):
     """
-    POST /finance/transactions TRANSFER
+    POST /transactions TRANSFER
     → Trừ 200,000 từ ví gửi (S), cộng 200,000 vào ví nhận (T).
     """
     sender_user, _, sender_headers = await seed_user_and_wallet(client, "S", balance=1000000)
     recipient_user, _, recipient_headers = await seed_user_and_wallet(client, "T", balance=500000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 200000,
         "type": "TRANSFER",
         "recipient_user_id": recipient_user["user_id"],
@@ -330,20 +330,20 @@ async def test_transfer_success(client):
     assert data["fee"] == 0
 
     # Verify sender balance: 1,000,000 - 200,000 = 800,000
-    sender_bal = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=sender_headers)
+    sender_bal = await client.get(f"{API_PREFIX}/users/me/wallet", headers=sender_headers)
     assert sender_bal.json()["data"]["balance"] == 800000
 
     # Verify recipient balance: 500,000 + 200,000 = 700,000
-    recipient_bal = await client.get(f"{API_PREFIX}/finance/users/me/wallet", headers=recipient_headers)
+    recipient_bal = await client.get(f"{API_PREFIX}/users/me/wallet", headers=recipient_headers)
     assert recipient_bal.json()["data"]["balance"] == 700000
 
 
 @pytest.mark.asyncio
 async def test_transfer_missing_recipient(client):
-    """POST /finance/transactions TRANSFER → 400 nếu thiếu recipient_user_id."""
+    """POST /transactions TRANSFER → 400 nếu thiếu recipient_user_id."""
     _, _, headers = await seed_user_and_wallet(client, "M", balance=1000000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "TRANSFER",
     }, headers=headers)
@@ -353,10 +353,10 @@ async def test_transfer_missing_recipient(client):
 
 @pytest.mark.asyncio
 async def test_transfer_self_not_allowed(client):
-    """POST /finance/transactions TRANSFER → 400 nếu tự chuyển cho chính mình."""
+    """POST /transactions TRANSFER → 400 nếu tự chuyển cho chính mình."""
     user_data, _, headers = await seed_user_and_wallet(client, "X", balance=1000000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "TRANSFER",
         "recipient_user_id": user_data["user_id"],
@@ -367,11 +367,11 @@ async def test_transfer_self_not_allowed(client):
 
 @pytest.mark.asyncio
 async def test_transfer_insufficient_balance(client):
-    """POST /finance/transactions TRANSFER → 400 nếu số dư ví gửi không đủ."""
+    """POST /transactions TRANSFER → 400 nếu số dư ví gửi không đủ."""
     sender_user, _, sender_headers = await seed_user_and_wallet(client, "P", balance=1000)
     recipient_user, _, _ = await seed_user_and_wallet(client, "Q", balance=500000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "TRANSFER",
         "recipient_user_id": recipient_user["user_id"],
@@ -382,10 +382,10 @@ async def test_transfer_insufficient_balance(client):
 
 @pytest.mark.asyncio
 async def test_transfer_recipient_not_found(client):
-    """POST /finance/transactions TRANSFER → 404 nếu ví người nhận không tồn tại."""
+    """POST /transactions TRANSFER → 404 nếu ví người nhận không tồn tại."""
     _, _, headers = await seed_user_and_wallet(client, "Y", balance=1000000)
 
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "TRANSFER",
         "recipient_user_id": "usr_not_exist",
@@ -400,7 +400,7 @@ async def test_transfer_recipient_not_found(client):
 
 @pytest.mark.asyncio
 async def test_idempotency_duplicate_rejected(client):
-    """POST /finance/transactions với trùng idempotency_key → 409 Conflict."""
+    """POST /transactions với trùng idempotency_key → 409 Conflict."""
     _, _, headers = await seed_user_and_wallet(client, "K", balance=1000000)
 
     txn_body = {
@@ -410,11 +410,11 @@ async def test_idempotency_duplicate_rejected(client):
     }
 
     # Lần 1 → Thành công
-    resp1 = await client.post(f"{API_PREFIX}/finance/transactions", json=txn_body, headers=headers)
+    resp1 = await client.post(f"{API_PREFIX}/transactions", json=txn_body, headers=headers)
     assert resp1.status_code == 201
 
     # Lần 2 → Duplicate
-    resp2 = await client.post(f"{API_PREFIX}/finance/transactions", json=txn_body, headers=headers)
+    resp2 = await client.post(f"{API_PREFIX}/transactions", json=txn_body, headers=headers)
     assert resp2.status_code == 409
     assert resp2.json()["error_code"] == "DUPLICATE_TRANSACTION"
 
@@ -425,10 +425,10 @@ async def test_idempotency_duplicate_rejected(client):
 
 @pytest.mark.asyncio
 async def test_invalid_amount_zero(client):
-    """POST /finance/transactions amount=0 → 422 Validation Error."""
+    """POST /transactions amount=0 → 422 Validation Error."""
     _, _, headers = await seed_user_and_wallet(client, "Z")
     
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 0,
         "type": "DEPOSIT",
     }, headers=headers)
@@ -437,10 +437,10 @@ async def test_invalid_amount_zero(client):
 
 @pytest.mark.asyncio
 async def test_invalid_transaction_type(client):
-    """POST /finance/transactions type không hợp lệ → 400."""
+    """POST /transactions type không hợp lệ → 400."""
     _, _, headers = await seed_user_and_wallet(client, "V")
     
-    response = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    response = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 100000,
         "type": "INVALID_TYPE",
     }, headers=headers)
@@ -454,18 +454,18 @@ async def test_invalid_transaction_type(client):
 
 @pytest.mark.asyncio
 async def test_get_transaction_success(client):
-    """GET /finance/transactions/{id} → Xem chi tiết giao dịch thành công (chủ sở hữu)."""
+    """GET /transactions/{id} → Xem chi tiết giao dịch thành công (chủ sở hữu)."""
     _, _, headers = await seed_user_and_wallet(client, "H")
 
     # Tạo giao dịch
-    txn_resp = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    txn_resp = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 300000,
         "type": "DEPOSIT",
     }, headers=headers)
     txn_id = txn_resp.json()["data"]["transaction_id"]
 
     # Xem giao dịch
-    response = await client.get(f"{API_PREFIX}/finance/transactions/{txn_id}", headers=headers)
+    response = await client.get(f"{API_PREFIX}/transactions/{txn_id}", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["transaction_id"] == txn_id
@@ -474,10 +474,10 @@ async def test_get_transaction_success(client):
 
 @pytest.mark.asyncio
 async def test_get_transaction_forbidden_for_other_users(client):
-    """GET /finance/transactions/{id} → 403 Forbidden nếu user khác cố truy cập."""
+    """GET /transactions/{id} → 403 Forbidden nếu user khác cố truy cập."""
     # User A tạo giao dịch
     _, _, headers_a = await seed_user_and_wallet(client, "A")
-    txn_resp = await client.post(f"{API_PREFIX}/finance/transactions", json={
+    txn_resp = await client.post(f"{API_PREFIX}/transactions", json={
         "amount": 150000,
         "type": "DEPOSIT",
     }, headers=headers_a)
@@ -485,7 +485,7 @@ async def test_get_transaction_forbidden_for_other_users(client):
 
     # User B cố xem giao dịch của User A
     _, _, headers_b = await seed_user_and_wallet(client, "B")
-    response = await client.get(f"{API_PREFIX}/finance/transactions/{txn_id}", headers=headers_b)
+    response = await client.get(f"{API_PREFIX}/transactions/{txn_id}", headers=headers_b)
     
     assert response.status_code == 403
     assert response.json()["error_code"] == "ACCESS_DENIED"
@@ -493,27 +493,27 @@ async def test_get_transaction_forbidden_for_other_users(client):
 
 @pytest.mark.asyncio
 async def test_get_transaction_not_found(client):
-    """GET /finance/transactions/non_existent → 404."""
+    """GET /transactions/non_existent → 404."""
     _, _, headers = await seed_user_and_wallet(client, "N")
     
-    response = await client.get(f"{API_PREFIX}/finance/transactions/txn_ghost", headers=headers)
+    response = await client.get(f"{API_PREFIX}/transactions/txn_ghost", headers=headers)
     assert response.status_code == 404
     assert response.json()["error_code"] == "TRANSACTION_NOT_FOUND"
 
 
 @pytest.mark.asyncio
 async def test_transaction_history(client):
-    """GET /finance/users/me/transactions → Lịch sử giao dịch sắp xếp mới nhất trước."""
+    """GET /users/me/transactions → Lịch sử giao dịch sắp xếp mới nhất trước."""
     _, _, headers = await seed_user_and_wallet(client, "L")
 
     # Tạo 3 giao dịch
     for i in range(3):
-        await client.post(f"{API_PREFIX}/finance/transactions", json={
+        await client.post(f"{API_PREFIX}/transactions", json={
             "amount": (i + 1) * 100000,
             "type": "DEPOSIT",
         }, headers=headers)
 
-    response = await client.get(f"{API_PREFIX}/finance/users/me/transactions", headers=headers)
+    response = await client.get(f"{API_PREFIX}/users/me/transactions", headers=headers)
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["total"] == 3
@@ -528,8 +528,8 @@ async def test_transaction_history(client):
 
 @pytest.mark.asyncio
 async def test_fee_transfer(client):
-    """GET /finance/fees?type=TRANSFER&amount=1000000 → Phí 0 (Public)."""
-    response = await client.get(f"{API_PREFIX}/finance/fees?type=TRANSFER&amount=1000000")
+    """GET /fees?type=TRANSFER&amount=1000000 → Phí 0 (Public)."""
+    response = await client.get(f"{API_PREFIX}/fees?type=TRANSFER&amount=1000000")
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["transaction_type"] == "TRANSFER"
@@ -538,8 +538,8 @@ async def test_fee_transfer(client):
 
 @pytest.mark.asyncio
 async def test_fee_withdrawal(client):
-    """GET /finance/fees?type=WITHDRAWAL&amount=500000 → Phí 1,100 (Public)."""
-    response = await client.get(f"{API_PREFIX}/finance/fees?type=WITHDRAWAL&amount=500000")
+    """GET /fees?type=WITHDRAWAL&amount=500000 → Phí 1,100 (Public)."""
+    response = await client.get(f"{API_PREFIX}/fees?type=WITHDRAWAL&amount=500000")
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["transaction_type"] == "WITHDRAWAL"
@@ -548,8 +548,8 @@ async def test_fee_withdrawal(client):
 
 @pytest.mark.asyncio
 async def test_fee_deposit(client):
-    """GET /finance/fees?type=DEPOSIT&amount=200000 → Phí 0 (Public)."""
-    response = await client.get(f"{API_PREFIX}/finance/fees?type=DEPOSIT&amount=200000")
+    """GET /fees?type=DEPOSIT&amount=200000 → Phí 0 (Public)."""
+    response = await client.get(f"{API_PREFIX}/fees?type=DEPOSIT&amount=200000")
     assert response.status_code == 200
     data = response.json()["data"]
     assert data["fee"] == 0
@@ -557,7 +557,7 @@ async def test_fee_deposit(client):
 
 @pytest.mark.asyncio
 async def test_fee_invalid_type(client):
-    """GET /finance/fees?type=INVALID&amount=100000 → 400."""
-    response = await client.get(f"{API_PREFIX}/finance/fees?type=INVALID&amount=100000")
+    """GET /fees?type=INVALID&amount=100000 → 400."""
+    response = await client.get(f"{API_PREFIX}/fees?type=INVALID&amount=100000")
     assert response.status_code == 400
     assert response.json()["error_code"] == "INVALID_TRANSACTION_TYPE"

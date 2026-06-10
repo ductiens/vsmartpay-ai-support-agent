@@ -18,7 +18,7 @@ async def register_and_login_user(client: AsyncClient, phone: str, role: str = "
     Helper to register a user with custom role and log in to get a JWT access token.
     """
     # 1. Register User
-    user_resp = await client.post(f"{API_PREFIX}/finance/users", json={
+    user_resp = await client.post(f"{API_PREFIX}/users", json={
         "full_name": f"User {phone}",
         "phone": phone,
         "email": f"user_{phone}@example.com",
@@ -36,7 +36,7 @@ async def register_and_login_user(client: AsyncClient, phone: str, role: str = "
         user_data["role"] = role
 
     # 2. Login
-    login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
+    login_resp = await client.post(f"{API_PREFIX}/login", json={
         "phone": phone,
         "password": "password123",
     })

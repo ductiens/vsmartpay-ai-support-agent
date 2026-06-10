@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from app.common.security import get_current_user, get_current_admin
 from app.common.response import success_response
-from app.modules.finance.schema import UserResponse
+from app.modules.users.schema import UserResponse
 from app.modules.chat.schema import (
     ChatRequest, ChatResponse, ChatSessionResponse, ChatMessageResponse,
     AdminChatMessageRequest

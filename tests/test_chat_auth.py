@@ -19,7 +19,7 @@ async def register_and_login(client: AsyncClient, suffix: str):
     phone = f"09999999{ord(suffix) % 100:02d}"
     
     # 1. Register User
-    user_resp = await client.post(f"{API_PREFIX}/finance/users", json={
+    user_resp = await client.post(f"{API_PREFIX}/users", json={
         "full_name": f"Chat User {suffix}",
         "phone": phone,
         "email": f"chat_{suffix.lower()}@example.com",
@@ -29,7 +29,7 @@ async def register_and_login(client: AsyncClient, suffix: str):
     user_data = user_resp.json()["data"]
 
     # 2. Login
-    login_resp = await client.post(f"{API_PREFIX}/finance/login", json={
+    login_resp = await client.post(f"{API_PREFIX}/login", json={
         "phone": phone,
         "password": "password123",
     })

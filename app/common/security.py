@@ -5,8 +5,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 
 from app.config import settings
-from app.modules.finance.repository import FinanceRepository
-from app.modules.finance.schema import UserResponse
+from app.modules.users.repository import UsersRepository
+from app.modules.users.schema import UserResponse
 
 # Define HTTPBearer schema for JWT Authentication
 security_scheme = HTTPBearer(auto_error=False)
@@ -61,7 +61,7 @@ async def get_current_user(
         raise credentials_exception
 
     # Query user from database
-    user = await FinanceRepository.get_user_by_id(user_id)
+    user = await UsersRepository.get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
