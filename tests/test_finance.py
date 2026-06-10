@@ -444,8 +444,7 @@ async def test_invalid_transaction_type(client):
         "amount": 100000,
         "type": "INVALID_TYPE",
     }, headers=headers)
-    assert response.status_code == 400
-    assert response.json()["error_code"] == "INVALID_TRANSACTION_TYPE"
+    assert response.status_code == 422
 
 
 # ══════════════════════════════════════════════════════════════

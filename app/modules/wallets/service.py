@@ -1,8 +1,9 @@
-﻿import logging
+import logging
 from app.common.utils import generate_id, now_utc
 from app.common.exceptions import DuplicateRequestException, NotFoundException
 from app.modules.wallets.repository import WalletsRepository
 from app.modules.wallets.schema import CreateWalletRequest, WalletResponse
+from app.common.constants import WalletStatus
 from app.modules.users.repository import UsersRepository
 
 logger = logging.getLogger(__name__)
@@ -34,8 +35,8 @@ class WalletsService:
             "wallet_id": wallet_id,
             "user_id": user_id,
             "balance": 0,
-            "currency": request.currency,
-            "status": "ACTIVE",
+            "currency": request.currency.value,
+            "status": WalletStatus.ACTIVE.value,
             "created_at": utc_now,
             "updated_at": utc_now,
         }
@@ -48,7 +49,7 @@ class WalletsService:
             user_id=user_id,
             balance=0,
             currency=request.currency,
-            status="ACTIVE",
+            status=WalletStatus.ACTIVE,
             created_at=utc_now,
         )
 

@@ -7,12 +7,14 @@ from app.modules.fees.schema import FeeResponse
 
 logger = logging.getLogger(__name__)
 
+from app.common.constants import TransactionType
+
 FEE_TABLE = {
-    "WITHDRAWAL": 1100,
-    "TRANSFER": 0,
-    "DEPOSIT": 0,
+    TransactionType.WITHDRAWAL.value: 1100,
+    TransactionType.TRANSFER.value: 0,
+    TransactionType.DEPOSIT.value: 0,
 }
-VALID_TRANSACTION_TYPES = {"DEPOSIT", "WITHDRAWAL", "TRANSFER"}
+VALID_TRANSACTION_TYPES = {t.value for t in TransactionType}
 
 class FeesService:
     @staticmethod

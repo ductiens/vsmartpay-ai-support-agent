@@ -40,12 +40,14 @@ class ChatResponse(BaseModel):
     tool_calls: List[Dict[str, Any]] = []
     escalation: EscalationDetail
 
+from app.common.constants import SessionStatus
+
 class ChatSessionResponse(BaseModel):
     session_id: str
     user_id: str
     created_at: datetime
     updated_at: datetime
-    status: str = "BOT_ACTIVE"
+    status: SessionStatus = SessionStatus.BOT_ACTIVE
     title: Optional[str] = None
 
 class AdminChatMessageRequest(BaseModel):

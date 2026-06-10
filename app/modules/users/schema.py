@@ -9,12 +9,14 @@ class CreateUserRequest(BaseModel):
     email: Optional[str] = Field(None, max_length=200, examples=["vana@example.com"])
     password: str = Field(..., min_length=6, max_length=100, examples=["password123"])
 
+from app.common.constants import UserRole, KYCStatus
+
 class UserResponse(BaseModel):
     """User information response."""
     user_id: str
     full_name: str
     phone: str
     email: Optional[str] = None
-    role: str = "user"
-    kyc_status: str = "UNVERIFIED"
+    role: UserRole = UserRole.USER
+    kyc_status: KYCStatus = KYCStatus.UNVERIFIED
     created_at: datetime

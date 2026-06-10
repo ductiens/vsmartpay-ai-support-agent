@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 from app.common.utils import generate_id, now_utc
 from app.common.exceptions import BadRequestException, DuplicateRequestException, InsufficientBalanceException, NotFoundException, ForbiddenException
 from app.modules.transactions.repository import TransactionsRepository
@@ -15,7 +15,7 @@ class TransactionsService:
         self.fees_svc = FeesService()
 
     async def create_transaction(self, request: CreateTransactionRequest, user_id: str) -> TransactionResponse:
-        tx_type = request.type.upper()
+        tx_type = request.type.value
         if tx_type not in VALID_TRANSACTION_TYPES:
             raise BadRequestException(
                 message=f"Loại giao dịch '{request.type}' không hợp lệ. Chấp nhận: {', '.join(VALID_TRANSACTION_TYPES)}",

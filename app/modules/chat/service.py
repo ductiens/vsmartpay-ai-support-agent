@@ -1,6 +1,7 @@
 import logging
 from app.modules.chat.schema import ChatRequest, ChatResponse
 from app.modules.chat.repository import ChatRepository
+from app.common.constants import SessionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class ChatService:
         return await self.repository.get_history(session_id)
 
     async def admin_get_waiting_sessions(self):
-        sessions = await self.repository.get_sessions_by_status("WAITING_HUMAN")
+        sessions = await self.repository.get_sessions_by_status(SessionStatus.WAITING_HUMAN.value)
         serialized_sessions = []
         for s in sessions:
             s_copy = s.copy()
@@ -75,6 +76,6 @@ class ChatService:
         )
         
         # 2. Cập nhật trạng thái session sang HUMAN_ACTIVE
-        await self.repository.update_session_status(session_id, "HUMAN_ACTIVE")
+        await self.repository.update_session_status(session_id, SessionStatus.HUMAN_ACTIVE.value)
         
-        return {"session_id": session_id, "status": "HUMAN_ACTIVE"}
+        return {"session_id": session_id, "status": SessionStatus.HUMAN_ACTIVE.value}

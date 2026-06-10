@@ -4,6 +4,7 @@ Business logic service for Users module.
 import logging
 from app.common.utils import generate_id, now_utc, hash_password
 from app.common.exceptions import DuplicateRequestException, NotFoundException
+from app.common.constants import UserRole, KYCStatus
 from app.modules.users.repository import UsersRepository
 from app.modules.users.schema import CreateUserRequest, UserResponse
 
@@ -37,9 +38,9 @@ class UsersService:
             "full_name": request.full_name,
             "phone": request.phone,
             "email": request.email,
-            "role": "user",
+            "role": UserRole.USER.value,
             "hashed_password": hashed_pw,
-            "kyc_status": "UNVERIFIED",
+            "kyc_status": KYCStatus.UNVERIFIED.value,
             "created_at": utc_now,
             "updated_at": utc_now,
         }
@@ -50,9 +51,10 @@ class UsersService:
         # Automatically create default wallet for new user
         from app.modules.wallets.schema import CreateWalletRequest
         from app.modules.wallets.service import WalletsService
+        from app.common.constants import Currency
         try:
             wallet_svc = WalletsService()
-            await wallet_svc.create_wallet(CreateWalletRequest(currency="VND"), user_id=user_id)
+            await wallet_svc.create_wallet(CreateWalletRequest(currency=Currency.VND), user_id=user_id)
             logger.info(f"Automatically created default wallet for user: {user_id}")
         except Exception as e:
             logger.error(f"Failed to auto-create wallet for user {user_id}: {e}")
@@ -62,8 +64,8 @@ class UsersService:
             full_name=request.full_name,
             phone=request.phone,
             email=request.email,
-            role="user",
-            kyc_status="UNVERIFIED",
+            role=UserRole.USER,
+            kyc_status=KYCStatus.UNVERIFIED,
             created_at=utc_now,
         )
 
