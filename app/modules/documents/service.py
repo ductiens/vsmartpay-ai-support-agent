@@ -444,50 +444,159 @@ class DocumentService:
 
         return UploadResult(doc_id=doc_id, file_name=file_name, status="processing")
 
-    async def get_document_status(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """Lấy thông tin tài liệu theo doc_id."""
+    async def get_document_status(self, doc_id: str):
+        from fastapi import HTTPException
+        from app.modules.documents.schema import DocStatusResponse
         doc_col = self.documents_collection
         if doc_col is not None:
-            return await doc_col.find_one({"doc_id": doc_id}, {"_id": 0})
-        return None
+            doc = await doc_col.find_one({"doc_id": doc_id}, {"_id": 0})
+            if doc:
+                return DocStatusResponse(
+                    doc_id=doc["doc_id"],
+                    file_name=doc["file_name"],
+                    status=doc["status"],
+                    chunk_count=doc.get("chunk_count", 0),
+                    error_message=doc.get("error_message")
+                )
+        raise HTTPException(status_code=404, detail="Document not found.")
 
-    async def list_documents(self) -> List[Dict[str, Any]]:
+    async def list_documents(self):
         """Lấy danh sách tất cả tài liệu, sắp xếp mới nhất trước."""
+        from app.modules.documents.schema import DocumentListItem
         doc_col = self.documents_collection
         if doc_col is None:
             return []
         cursor = doc_col.find({}, {"_id": 0, "raw_text": 0}).sort("created_at", -1)
-        return await cursor.to_list(length=200)
+        docs = await cursor.to_list(length=200)
+        return [
+            DocumentListItem(
+                doc_id=d["doc_id"],
+                file_name=d["file_name"],
+                status=d["status"],
+                chunk_count=d.get("chunk_count", 0),
+                error_message=d.get("error_message"),
+                created_at=d.get("created_at"),
+                updated_at=d.get("updated_at")
+            ) for d in docs
+        ]
 
-    async def delete_document(self, doc_id: str) -> bool:
+    async def delete_document(self, doc_id: str):
         """
         Xóa tài liệu và tất cả các chunk embedding liên quan.
-        Trả về True nếu xóa thành công, False nếu tài liệu không tồn tại.
+        Raise HTTPException 404 nếu tài liệu không tồn tại.
         """
+        from fastapi import HTTPException
         doc_col = self.documents_collection
         if doc_col is None:
-            return False
+            raise HTTPException(status_code=500, detail="Database not configured.")
         
         doc = await doc_col.find_one({"doc_id": doc_id})
         if not doc:
-            return False
+            raise HTTPException(status_code=404, detail="Document not found.")
         
         # Xóa tất cả chunk embeddings thuộc về tài liệu này
         await self.vector_store.delete_chunks_by_doc_id(doc_id)
         # Xóa bản ghi tài liệu
         await doc_col.delete_one({"doc_id": doc_id})
-        return True
+        return {"success": True, "message": f"Tài liệu {doc_id} và toàn bộ chunk đã được xóa thành công."}
 
-    async def get_document_chunks(self, doc_id: str) -> List[Dict[str, Any]]:
+    async def get_document_chunks(self, doc_id: str):
         """Lấy danh sách tất cả chunk thuộc một tài liệu cụ thể."""
+        from fastapi import HTTPException
+        from app.modules.documents.schema import DocumentChunkItem
+        
+        # Check if doc exists
+        doc_col = self.documents_collection
+        if doc_col is None:
+            raise HTTPException(status_code=500, detail="Database not configured.")
+            
+        doc = await doc_col.find_one({"doc_id": doc_id})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found.")
+            
         chunks_col = self.chunks_collection
         if chunks_col is None:
             return []
+            
         cursor = chunks_col.find(
             {"doc_id": doc_id},
             {"_id": 0, "embedding": 0}  # Loại bỏ embedding vector (quá lớn) khỏi response
         ).sort("chunk_index", 1)
-        return await cursor.to_list(length=500)
+        
+        chunks = await cursor.to_list(length=500)
+        return [
+            DocumentChunkItem(
+                chunk_id=c.get("chunk_id", ""),
+                chunk_index=c.get("chunk_index", 0),
+                content=c.get("content", ""),
+                page=c.get("page"),
+                heading=c.get("heading"),
+                category=c.get("category"),
+                kb_type=c.get("kb_type"),
+                token_count=c.get("token_count")
+            ) for c in chunks
+        ]
+
+    async def handle_batch_upload(self, files, background_tasks, agent_scope, kb_type, category, language):
+        from fastapi import HTTPException
+        if not files:
+            raise HTTPException(status_code=400, detail="No files uploaded.")
+            
+        if len(files) > 10:
+            raise HTTPException(status_code=400, detail="Cannot upload more than 10 files in a single request.")
+
+        # Calculate total size and pre-read files
+        total_size = 0
+        file_payloads = []
+        results = []
+
+        for file in files:
+            file_bytes = await file.read()
+            file_size = len(file_bytes)
+            total_size += file_size
+            
+            # Max 10MB per file
+            if file_size > 10 * 1024 * 1024:
+                results.append(UploadResult(
+                    file_name=file.filename or "unknown",
+                    status="failed",
+                    error_message="File exceeds 10MB limit."
+                ))
+                continue
+
+            file_payloads.append((file.filename, file_bytes))
+
+        # Max 50MB total per request
+        if total_size > 50 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Total request payload size exceeds 50MB limit.")
+
+        # 2. Register files and dispatch background processing tasks
+        for file_name, file_bytes in file_payloads:
+            try:
+                # Hash checks, identical file re-upload cleanups, and record insertion
+                res = await self.check_and_prepare_upload(file_name, file_bytes)
+                results.append(res)
+                
+                # If successfully inserted as 'processing', launch background extraction & embedding
+                if res.status == "processing" and res.doc_id:
+                    background_tasks.add_task(
+                        self.process_document_background,
+                        doc_id=res.doc_id,
+                        file_name=file_name,
+                        file_bytes=file_bytes,
+                        agent_scope=agent_scope,
+                        kb_type=kb_type,
+                        category=category,
+                        language=language
+                    )
+            except Exception as e:
+                results.append(UploadResult(
+                    file_name=file_name,
+                    status="failed",
+                    error_message=str(e)
+                ))
+
+        return results
 
 
 
