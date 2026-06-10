@@ -61,7 +61,7 @@ async def get_current_user(
         raise credentials_exception
 
     # Query user from database
-    user = await UsersRepository.get_user_by_id(user_id)
+    user = await UsersRepository().get_user_by_id(user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

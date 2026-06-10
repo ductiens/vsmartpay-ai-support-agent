@@ -11,39 +11,30 @@ logger = logging.getLogger(__name__)
 class UsersRepository:
     """Async MongoDB data access layer for users collection."""
 
-    @staticmethod
-    def _get_active_db():
+    def __init__(self):
+        pass
+
+    @property
+    def collection(self):
         db = get_db()
         if db is None:
             raise RuntimeError("Database connection not initialized.")
-        return db
+        return db["users"]
 
-    @staticmethod
-    async def ensure_indexes() -> None:
-        db = get_db()
-        if db is None:
-            logger.warning("Database not available, skipping users index creation.")
-            return
-
+    async def ensure_indexes(self) -> None:
         try:
-            await db["users"].create_index("user_id", unique=True)
-            await db["users"].create_index("phone")
-            await db["users"].create_index("email", sparse=True)
+            await self.collection.create_index("user_id", unique=True)
+            await self.collection.create_index("phone")
+            await self.collection.create_index("email", sparse=True)
             logger.info("Users collection indexes ensured successfully.")
         except Exception as e:
             logger.error(f"Failed to create users indexes: {e}")
 
-    @staticmethod
-    async def create_user(data: Dict[str, Any]) -> None:
-        db = UsersRepository._get_active_db()
-        await db["users"].insert_one(data)
+    async def create_user(self, data: Dict[str, Any]) -> None:
+        await self.collection.insert_one(data)
 
-    @staticmethod
-    async def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:
-        db = UsersRepository._get_active_db()
-        return await db["users"].find_one({"user_id": user_id}, {"_id": 0})
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        return await self.collection.find_one({"user_id": user_id}, {"_id": 0})
 
-    @staticmethod
-    async def get_user_by_phone(phone: str) -> Optional[Dict[str, Any]]:
-        db = UsersRepository._get_active_db()
-        return await db["users"].find_one({"phone": phone}, {"_id": 0})
+    async def get_user_by_phone(self, phone: str) -> Optional[Dict[str, Any]]:
+        return await self.collection.find_one({"phone": phone}, {"_id": 0})

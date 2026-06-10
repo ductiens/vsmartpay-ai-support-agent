@@ -25,7 +25,8 @@ def hash_password(password: str) -> str:
     # bcrypt password must be converted to bytes
     password_bytes = password.encode('utf-8')
     # Generate salt and hash the password
-    salt = bcrypt.gensalt()
+    from app.config import settings
+    salt = bcrypt.gensalt(rounds=settings.BCRYPT_LOG_ROUNDS)
     hashed = bcrypt.hashpw(password_bytes, salt)
     # Decode to return a unicode string
     return hashed.decode('utf-8')

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     DATABASE_NAME: str = "vsmartpay_support_agent"
 
     # Security
-    SECRET_KEY: str = "change-me-in-production-very-secret-key-12345"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     BCRYPT_LOG_ROUNDS: int = 12

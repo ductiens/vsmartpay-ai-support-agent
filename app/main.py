@@ -39,9 +39,9 @@ async def lifespan(app: FastAPI):
             vector_store = VectorStoreService()
             await vector_store.ensure_search_indexes()
             # Ensure collection indexes
-            await UsersRepository.ensure_indexes()
-            await WalletsRepository.ensure_indexes()
-            await TransactionsRepository.ensure_indexes()
+            await UsersRepository().ensure_indexes()
+            await WalletsRepository().ensure_indexes()
+            await TransactionsRepository().ensure_indexes()
     except Exception as e:
         logger.error(f"Startup database connection or index setup failed: {e}")
     yield

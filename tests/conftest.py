@@ -118,10 +118,11 @@ async def client(test_db):
                 payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
                 user_id = payload.get("sub")
                 if user_id:
-                    user = await UsersRepository.get_user_by_id(user_id)
+                    user = await UsersRepository().get_user_by_id(user_id)
                     if user:
                         return UserResponse(**user)
-            except Exception:
+            except Exception as e:
+                print(f"Exception in get_current_user override: {e}")
                 pass
         
         # If no auth header is provided and the path is /chat, return a mock default user for backwards compatibility with tests
