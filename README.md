@@ -1,264 +1,240 @@
-# 💳 VSmartPay AI Support Agent (Trợ Lý Hỗ Trợ Khách Hàng Ảo Thông Minh)
+# 💳 VSmartPay AI Support Agent
 
-**VSmartPay AI Support Agent** là hệ thống Trợ lý ảo hỗ trợ khách hàng thông minh dành riêng cho ví điện tử **VSmartPay**. Dự án được xây dựng dựa trên kiến trúc **Retrieval-Augmented Generation (RAG)** kết hợp công nghệ điều phối đa tác nhân **LangGraph (Multi-Agent Orchestration)**, giúp tự động giải quyết các thắc mắc nghiệp vụ tài chính của khách hàng, tích hợp các công cụ ví điện tử giả lập, đồng thời tự động phát hiện rủi ro bảo mật và chuyển giao (escalate) thông minh cho bộ phận CSKH thực tế.
+![Python](https://img.shields.io/badge/Python-3.11+-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-Backend-green)
+![MongoDB](https://img.shields.io/badge/Database-MongoDB-brightgreen)
+![Status](https://img.shields.io/badge/Status-Development-orange)
+
+**VSmartPay AI Support Agent** là hệ thống backend cung cấp trợ lý ảo (AI Support Agent) phục vụ chăm sóc khách hàng cho ví điện tử giả lập VSmartPay. Dự án ứng dụng kiến trúc RAG (Retrieval-Augmented Generation), điều phối đa tác nhân bằng LangGraph và tích hợp hệ thống tài chính mô phỏng (ví, giao dịch).
 
 ---
 
-## 🗺️ 1. Kiến trúc Hệ thống (System Architecture)
-### Luồng hoạt động của dự án sử dụng LangGraph (Flowchart)
+## 🚀 Tính năng nổi bật (Features)
+
+### 🧠 Core AI & Chatbot Capabilities
+- **Bảo mật & Guardrails Tích Hợp**: 
+  - *Injection Guard*: Chủ động chặn đứng các nỗ lực Prompt Injection, Jailbreak, hoặc ngôn từ độc hại từ người dùng trước khi đưa vào LLM.
+  - *Grounding Guard*: Đảm bảo Chatbot không bịa đặt (hallucinate) thông tin. Mọi câu trả lời đều phải dựa trên ngữ cảnh được Retrieval (RAG).
+- **Phân loại Intent & Nhận diện Công cụ (Tool Calling)**: Sử dụng Function Calling để nhận diện chính xác ý định (Intent) của người dùng (Hỏi đáp, Số dư, Chuyển tiền, Báo lỗi) và tự động gọi các công cụ (Mock Financial Tools) tương ứng.
+- **Tự động Chuyển giao (Human Handoff/Escalation)**: Nhận biết ngưỡng rủi ro và độ tự tin (Confidence Level). Nếu người dùng báo cáo gian lận (Fraud) hoặc Chatbot không chắc chắn (< 60% Confidence), luồng LangGraph sẽ tự động ngắt và đẩy (escalate) phiên chat sang trạng thái `WAITING_HUMAN` cho tư vấn viên thật xử lý.
+- **Bảo vệ Dữ liệu Cá nhân (PII Masking)**: Ẩn/Mask thông tin nhạy cảm (như số điện thoại, email) trước khi gửi prompt lên OpenAI.
+- **Điều phối Đa Tác Nhân (LangGraph Orchestration)**: Tách biệt tư duy của LLM thành các Node xử lý chuyên biệt (Intent, Router, RAG, Confidence, Clarification), giúp dễ debug và mở rộng logic.
+- **Dynamic Metadata Filtering & Fallback Retrieval**: Hệ thống RAG không chỉ tìm kiếm mù quáng, mà còn biết dùng metadata (`agent_scope`, `kb_type`, `category`) để khoanh vùng tài liệu chính xác theo Intent. Nếu tìm kiếm với filter khắt khe (strict search) không có kết quả, hệ thống có cơ chế Fallback tự động tìm kiếm trên toàn bộ Knowledge Base để không bỏ lót thông tin.
+
+### 💼 Nền tảng Ví Điện Tử & Backend
+- **RAG & Knowledge Base**: Lưu trữ, phân mảnh (chunking) và tìm kiếm thông tin nghiệp vụ nội bộ (PDF, DOCX).
+- **Auth & Quản lý Tài khoản**: Đăng ký, đăng nhập (JWT), quản lý người dùng (Users) và Ví (Wallets).
+- **Hệ thống Tài chính (Mock Financial Tools)**: Mô phỏng nạp (Deposit), rút (Withdrawal), chuyển khoản (Transfer) và tính phí (Fees).
+- **Vector Search & Tracing**: Tích hợp FAISS / MongoDB Atlas Vector Search và giám sát luồng bằng LangSmith.
+
+---
+
+## 🛠️ Công nghệ sử dụng (Tech Stack)
+
+- **Backend**: FastAPI (Python 3.11+), Uvicorn.
+- **Database**: MongoDB (Async Motor, PyMongo).
+- **Auth & Security**: JWT (python-jose), Bcrypt (passlib).
+- **AI & RAG**: OpenAI (gpt-4o-mini, text-embedding-3-small), LangChain, LangGraph.
+- **Vector Store**: FAISS (CPU) / MongoDB Atlas Vector Search.
+- **Document Processing**: PyMuPDF, pypdf, python-docx.
+- **Testing**: Pytest, pytest-asyncio, httpx.
+
+---
+
+## 🗺️ Kiến trúc Tổng quan (Architecture)
+
+### 1. LangGraph Multi-Agent Orchestration
+Kiến trúc này định tuyến các luồng xử lý thông minh, đảm bảo an toàn (guardrails) và tự động rẽ nhánh.
+
 ```mermaid
 flowchart TD
-    A["User gửi câu hỏi"] --> B["POST /chat"]
-    B --> C["ChatService"]
+    Start((User Request)) --> IG[Injection Guard Node]
+    
+    subgraph IntentAgent [Intent Agent Node]
+        IC_Rule[1. Heuristics / Rules]
+        IC_LLM[2. LLM Classifier]
+        IC_Fallback[3. Fallback Rules]
+        
+        IC_Rule -->|No Match| IC_LLM
+        IC_LLM -->|Error| IC_Fallback
+    end
+    
+    IG --> IC_Rule
+    
+    IC_Rule -->|Match| RouteIntent{Route}
+    IC_LLM -->|Success| RouteIntent
+    IC_Fallback --> RouteIntent
+    
+    RouteIntent -->|High Risk / Escalate| EA[Escalation Agent]
+    RouteIntent -->|Standard Query| TR[Tool Router Node]
+    
+    TR --> RAG[RAG Agent Node]
+    RAG --> GG[Grounding Guard Node]
+    GG --> CA[Confidence Agent Node]
+    
+    CA -->|Low Confidence + High Risk| EA
+    CA -->|Low Confidence| CL[Clarification Agent]
+    CA -->|High Confidence| FA[Final Answer Node]
+    
+    EA --> End((Response))
+    CL --> End
+    FA --> End
+```
 
-    C --> D["Lưu user message vào MongoDB"]
-    D --> E["Phân loại intent"]
+### 2. Hybrid Search & RAG Workflow
+Hệ thống sử dụng Hybrid Search kết hợp giữa tìm kiếm Vector (ngữ nghĩa) và tìm kiếm Keyword (từ khóa), sau đó trộn kết quả bằng Reciprocal Rank Fusion (RRF).
 
-    E --> F{"Intent là loại nào?"}
+```mermaid
+flowchart TD
+    Q[User Query] --> EMB[OpenAI Embeddings]
+    Q --> KS[Keyword Search]
+    EMB --> VS[Vector Search]
+    
+    subsearch_VS[Vector Store]
+    subsearch_KS[Keyword Index]
+    
+    VS -->|Cosine / KNN| subsearch_VS
+    KS -->|BM25 / Regex| subsearch_KS
+    
+    subsearch_VS --> VR[Vector Results]
+    subsearch_KS --> KR[Keyword Results]
+    
+    VR --> RRF{Reciprocal Rank Fusion}
+    KR --> RRF
+    
+    RRF --> TOP[Top K Documents]
+    TOP --> LLM[LLM Generation Context]
+```
 
-    F -- "Hỏi số dư" --> G["Gọi check_balance"]
-    F -- "Hỏi trạng thái giao dịch" --> H["Gọi get_transaction_status"]
-    F -- "Hỏi phí" --> I["Gọi get_fee"]
+### 3. Tracing với LangSmith
+Hệ thống tích hợp sẵn luồng giám sát chi tiết thông qua **LangSmith**, cho phép track từng Node trong LangGraph, độ trễ (latency), Token usage và Retrieval trace. Có thể bật tắt thông qua cấu hình `LANGSMITH_TRACING` trong file `.env`.
 
-    F -- "FAQ / hạn mức / KYC / chính sách" --> J["Truy xuất tài liệu RAG"]
+---
 
-    F -- "Mất tiền / lừa đảo / hack / OTP" --> K["Đánh dấu rủi ro cao"]
-    F -- "Muốn gặp CSKH" --> K
+## 📂 Cấu trúc Dự án (Project Structure)
 
-    G --> L["Kết quả tool ví"]
-    H --> L
-    I --> L
-
-    J --> M["Context từ tài liệu"]
-    K --> N["Thông tin escalation"]
-
-    L --> O["Kiểm tra escalation"]
-    M --> O
-    N --> O
-
-    O --> P{"Có cần chuyển CSKH không?"}
-
-    P -- "Có" --> Q["Tạo support ticket"]
-    P -- "Không" --> R["Không tạo ticket"]
-
-    Q --> S["Thông tin ticket"]
-    R --> T["Không có thông tin ticket"]
-
-    L --> U["Chuẩn bị nội dung trả lời"]
-    M --> U
-    S --> U
-    T --> U
-
-    U --> V["LLM hoặc fallback answer"]
-    V --> W["Lưu assistant message vào MongoDB"]
-    W --> X["Trả ChatResponse"]
+```text
+app/
+├── api/             # Nơi gom (include) toàn bộ các router
+├── core/            # Lifespan startup, Exception handlers global
+├── common/          # Constant (Enum), Exception tuỳ chỉnh, Response formatter, Utils
+├── modules/
+│   ├── auth/        # Đăng nhập, tạo session JWT
+│   ├── users/       # Quản lý người dùng, KYC
+│   ├── wallets/     # Tạo ví, kiểm tra số dư
+│   ├── transactions/# Thực hiện Deposit, Withdrawal, Transfer
+│   ├── fees/        # Tính toán phí giao dịch
+│   ├── documents/   # Quản lý, tải lên và chunking tài liệu
+│   ├── rag/         # Vector Store (FAISS/MongoDB), Embeddings
+│   ├── tools/       # Các công cụ hỗ trợ RAG/Chat
+│   └── chat/        # Logic giao tiếp với LLM, LangGraph
+├── config.py        # Settings cấu hình toàn cục (Pydantic Settings)
+├── database.py      # Connection manager kết nối MongoDB Async
+└── main.py          # FastAPI Entrypoint
 ```
 
 ---
 
-<!-- ## 🧩 2. Mô tả Chi tiết các Tác nhân (Agent Components Detail)
+## ⚙️ Biến Môi trường (Environment Variables)
 
-Hệ thống được thiết kế dưới dạng máy trạng thái hữu hạn sử dụng `StateGraph` từ LangGraph với các node xử lý độc lập:
+Hệ thống cấu hình thông qua file `.env` (tham khảo `.env.example`).
+**Đặc biệt lưu ý**: Biến `SECRET_KEY` là **bắt buộc** để ký mã hóa JWT. Không dùng key mặc định cho môi trường chạy thật.
 
-1. **Injection Guard (`injection_guard_node`)**: Node chốt chặn bảo mật ở cửa ngõ. Phát hiện các hành vi Jailbreak hoặc Prompt Injection (ví dụ: `"ignore previous instructions"`) và ngay lập tức chuyển giao trạng thái khẩn cấp.
-2. **Intent Agent (`intent_agent_node`)**: Phân loại ý định khách hàng thành một trong 14 nhóm ý định nghiệp vụ với độ tin cậy từ 0.0 đến 1.0 dựa trên heuristics và phân tích ngữ nghĩa.
-3. **RAG Agent (`rag_agent_node`)**: Thực hiện tìm kiếm ngữ nghĩa trên cơ sở tri thức (MongoDB Atlas/FAISS), giới hạn phạm vi tìm kiếm theo phân loại tài liệu (`kb_type`) và nhóm tác vụ (`agent_scope`) để triệt tiêu nhiễu dữ liệu.
-4. **Clarification Agent (`clarification_agent_node`)**: Tự động kích hoạt khi thông tin khách hàng cung cấp bị thiếu hụt hoặc mơ hồ, đưa ra câu hỏi gợi ý tinh tế thay vì trả lời sai lệch.
-5. **Escalation Agent (`escalation_agent_node`)**: Xử lý các tình huống khẩn cấp, tự động ghi nhận Ticket hỗ trợ độ ưu tiên cao (`HIGH`) trực tiếp vào MongoDB và thông báo kết nối với nhân viên CSKH con người.
-6. **Grounding Guard (`grounding_guard_node`)**: Kiểm tra chéo câu trả lời nháp đối chiếu với các nguồn tài liệu được trả về. Nếu phát hiện thông tin tự suy diễn (Hallucination), sẽ lập tức gắn cờ bác bỏ câu trả lời ảo giác và chuyển tiếp sang Clarification Agent.
-
----
-
-## 🗂️ 3. Danh mục Ý định (Intent Taxonomy)
-
-Hệ thống nhận diện và xử lý chính xác 14 nhóm ý định nghiệp vụ tài chính:
-
-*   **Nhóm Nghiệp vụ & Tra cứu**:
-    *   `LIMIT_INQUIRY`: Tra cứu hạn mức nạp, rút, chuyển tiền.
-    *   `FEE_INQUIRY`: Tra cứu biểu phí giao dịch của ví.
-    *   `BALANCE_INQUIRY`: Hỏi về số dư khả dụng hiện tại.
-    *   `TRANSACTION_STATUS`: Tra cứu trạng thái của một mã giao dịch cụ thể.
-    *   `PROMOTION_INQUIRY`: Tìm hiểu các ưu đãi, khuyến mãi đang áp dụng.
-    *   `KYC_SUPPORT`: Hướng dẫn xác thực danh tính, định danh tài khoản.
-    *   `BANK_LINKING`: Hướng dẫn liên kết hoặc hủy liên kết thẻ/tài khoản ngân hàng.
-    *   `FAQ_GENERAL`: Các câu hỏi thường gặp chung khác.
-*   **Nhóm Sự cố & Bảo mật (Khẩn cấp)**:
-    *   `FAILED_TRANSACTION`: Giao dịch bị báo lỗi thất bại nhưng tài khoản bị trừ tiền.
-    *   `ACCOUNT_SECURITY`: Nghi ngờ lộ mã OTP, mất mật khẩu, yêu cầu khóa ví.
-    *   `FRAUD_OR_SCAM_REPORT`: Khách hàng báo cáo bị lừa đảo hoặc kẻ xấu gian lận tiền.
-    *   `HUMAN_SUPPORT_REQUEST`: Yêu cầu trực tiếp gặp nhân viên CSKH thật.
-*   **Nhóm Phụ trợ**:
-    *   `OUT_OF_SCOPE`: Các câu hỏi không liên quan đến ví (ví dụ: thời tiết, sửa xe, nấu ăn...).
-    *   `GREETING`: Chào hỏi thông thường.
-
----
-
-## 🚨 4. Chính sách Chuyển tiếp CSKH (Escalation Policies)
-
-Hệ thống áp dụng các quy tắc chuyển tiếp chặt chẽ:
-
-1.  **Quy tắc Cứng (Hard Escalation)**: Lập tức chuyển giao sang CSKH thực tế (tạo Ticket độ ưu tiên `HIGH` trong MongoDB và từ chối trả lời tự động) đối với các ý định nhạy cảm bảo mật:
-    *   Phát hiện tấn công Prompt Injection (`injection_detected = True`).
-    *   Ý định báo cáo lừa đảo (`FRAUD_OR_SCAM_REPORT`).
-    *   Lộ mã OTP, bị khóa ví (`ACCOUNT_SECURITY` khẩn cấp).
-    *   Khách hàng yêu cầu gặp người thật (`HUMAN_SUPPORT_REQUEST`).
-2.  **Quy tắc Nghiệp vụ (Business Escalation)**: Chuyển tiếp ngay lập tức khi phát hiện lỗi hệ thống:
-    *   Giao dịch có trạng thái `FAILED` hoặc `PENDING` quá hạn trong ví giả lập.
-3.  **Quy tắc Mềm (Soft Escalation)**: Chuyển tiếp sang nhân viên hỗ trợ với mức ưu tiên `LOW` khi:
-    *   Độ tin cậy phân loại ý định thấp hơn ngưỡng 60% (`confidence < 0.6`).
-    *   Hệ thống RAG tìm kiếm không thấy tài liệu phù hợp (`context_insufficient = True`).
-    *   Câu hỏi nằm ngoài phạm vi hỗ trợ (`OUT_OF_SCOPE`). -->
-
----
-
-<!-- ## 🛠️ 5. Tích hợp Ví Điện tử Giả lập (Mock Wallet Tools)
-
-Để đảm bảo tính xác thực tuyệt đối của dữ liệu giao dịch và số dư, Support Agent tích hợp trực tiếp 3 API giả lập (Mock Tools) thay vì để LLM tự trả lời:
-
-1.  **`check_balance(user_id)`**: Trả về số dư chính xác của khách hàng kèm loại tiền tệ (mặc định số dư tài khoản `user_001` là **2.500.000 VND**).
-2.  **`get_transaction_status(transaction_id)`**: Tra cứu trạng thái giao dịch thời gian thực theo mã ID (ví dụ: `tx_001` trả về trạng thái `SUCCESS`, `tx_003` trả về `FAILED` kích hoạt tự động tạo Ticket hỗ trợ).
-3.  **`get_fee(transaction_type, amount)`**: Trả về biểu phí áp dụng chính xác cho từng loại giao dịch (ví dụ: Phí rút tiền mặc định là **1.100 VND**, phí nạp tiền và chuyển tiền là **0 VND**). -->
-
----
-
-<!-- ## 📊 6. Đánh giá Hiệu năng (Evaluation & Benchmark Metrics)
-
-Kết quả so sánh side-by-side giữa luồng **Legacy RAG** và **Multi-Agent LangGraph** thực thi trên bộ dữ liệu kiểm định gồm **45 trường hợp thực tế** (`data/eval/golden_qa.jsonl` và `data/eval/escalation_cases.jsonl`):
-
-| Chỉ số đo lường (Metric) | Luồng RAG Truyền thống (Legacy) | Luồng LangGraph Đa Tác vụ (Multi-Agent) | Ý nghĩa nghiệp vụ |
-| :--- | :---: | :---: | :--- |
-| **Intent Accuracy** | **75.56%** | **75.56%** | Tỷ lệ phân loại chính xác ý định khách hàng |
-| **Recall @ K** | **66.67%** | **24.44%** | Tỷ lệ tìm kiếm thấy tài liệu mong đợi |
-| **Groundedness Rate** | **93.33%** | **35.56%** | Tỷ lệ câu trả lời có dẫn nguồn đáng tin cậy |
-| **Hallucination Rate** | **6.67%** | **64.44%** | Tỷ lệ câu trả lời tự suy diễn ngoài tài liệu |
-| **Escalation Precision** | **53.33%** | **53.33%** | Tỷ lệ chuyển giao chính xác cho CSKH |
-| **Escalation Recall** | **100.00%** | **100.00%** | Tỷ lệ phát hiện đầy đủ các trường hợp khẩn cấp |
-| **Retrieval Filter Accuracy** | **100.00%** | **100.00%** | Độ chính xác khi áp dụng bộ lọc dữ liệu tự động |
-| **Chunk Source Accuracy** | **100.00%** | **57.78%** | Tỷ lệ chunk khớp tài liệu nguồn mong đợi |
-| **Average Latency (ms)** | **317.58 ms** | **353.42 ms** | Thời gian phản hồi trung bình của hệ thống |
-| **P95 Latency (ms)** | **429.17 ms** | **448.67 ms** | Độ trễ phân vị 95 (đáp ứng trải nghiệm người dùng) |
-
-> [!TIP]
-> **Nhận xét chính**: Luồng LangGraph mặc dù có thêm chi phí điều phối máy trạng thái nhưng thời gian phản hồi p95 vẫn duy trì cực thấp (~**448.67 ms**), đáp ứng hoàn hảo tiêu chuẩn trải nghiệm khách hàng (< **2.0s**). Luồng đa tác vụ vượt trội hơn ở khả năng phát hiện rủi ro bảo mật qua chốt chặn bảo vệ đầu vào độc lập mà không tiêu tốn tài nguyên gọi mô hình ngôn ngữ lớn (LLM). -->
-
----
-
-## ⚙️ 7. Cấu hình Môi trường (Environment Configurations)
-
-Hệ thống cung cấp các tham số tùy chỉnh linh hoạt trong tệp `.env`:
-
-*   Luồng điều phối đa tác nhân LangGraph.
-*   `VECTOR_STORE`: Cấu hình kho lưu trữ vector.
-    *   `atlas`: Sử dụng cơ sở dữ liệu MongoDB Atlas Vector Search (Tự động fallback sang tính toán cosine similarity cục bộ sử dụng NumPy nếu chạy trên môi trường MongoDB Community cục bộ).
-*   `MONGODB_URL`: Chuỗi kết nối MongoDB (hỗ trợ cả Atlas và Local).
-*   `DATABASE_NAME`: Tên cơ sở dữ liệu lưu trữ lịch sử hội thoại, tài liệu và support tickets.
-*   `OPENAI_API_KEY`: Mã khóa API OpenAI kết nối LLM và tạo embeddings.
-
----
-
-## 🚀 8. Hướng dẫn Cài đặt & Khởi chạy (Installation & Quick Start)
-
-### 1. Khởi tạo môi trường ảo & Cài đặt thư viện
+*Gợi ý tạo SECRET_KEY ngẫu nhiên:*
 ```bash
-# Tạo môi trường ảo Python 3.10+
-python -m venv venv
-
-# Kích hoạt môi trường ảo (Windows PowerShell)
-.\venv\Scripts\Activate.ps1
-
-# Kích hoạt môi trường ảo (macOS/Linux)
-source venv/bin/activate
-
-# Cài đặt toàn bộ thư viện cần thiết
-pip install -r requirements.txt
+python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-### 2. Thiết lập cấu hình
-Sao chép cấu hình mẫu và tùy chỉnh các giá trị của bạn:
-```bash
-cp .env.example .env
-```
-
-### 3. Khởi chạy Ứng dụng ở chế độ Phát triển
-```bash
-uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-*   **Base URL**: `http://127.0.0.1:8000`
-*   **API Docs (Swagger)**: `http://127.0.0.1:8000/docs`
-*   **Kiểm tra sức khỏe (Health check)**: `http://127.0.0.1:8000/health`
+Một số biến quan trọng khác:
+- `MONGODB_URL`: Chuỗi kết nối MongoDB.
+- `DATABASE_NAME`: Tên database.
+- `OPENAI_API_KEY`: Bắt buộc để sử dụng tính năng Chat và Embeddings.
+- `VECTOR_STORE`: Chọn `faiss` hoặc `atlas`.
+- `USE_LANGGRAPH`: `True`/`False` để bật tắt LangGraph orchestration.
+- `LANGSMITH_TRACING`: `True` nếu muốn log luồng suy luận lên LangSmith.
 
 ---
 
-## 🌐 9. Thiết lập MongoDB Atlas Vector Search vs Local Fallback
+## 📥 Cài đặt (Installation)
 
-### Tùy chọn A: Sử dụng MongoDB Atlas (Khuyên dùng cho Staging/Production)
-1. Tạo một cụm (Cluster) miễn phí trên MongoDB Atlas.
-2. Tạo bộ sưu tập `knowledge_chunks` bên dưới cơ sở dữ liệu của bạn.
-3. Cấu hình Atlas Search Index bằng JSON sau đây trên Atlas Console với tên chỉ mục trùng khớp giá trị `MONGODB_VECTOR_INDEX_NAME` (mặc định: `vector_index`):
-```json
-{
-  "mappings": {
-    "dynamic": true,
-    "fields": {
-      "embedding": {
-        "dimensions": 1536,
-        "similarity": "cosine",
-        "type": "knnVector"
-      }
-    }
-  }
-}
-```
+1. **Clone repository:**
+   ```bash
+   git clone <repo-url>
+   cd vsmartpay-ai-support-agent
+   ```
 
-### Tùy chọn B: Sử dụng Local Fallback (Khuyên dùng cho Phát triển cục bộ)
-Nếu chạy trên cơ sở dữ liệu MongoDB Community cục bộ (không hỗ trợ toán tử `$vectorSearch` nâng cao của Atlas), hệ thống sẽ **tự động phát hiện** và chuyển hướng sang cơ chế tính toán Vector Cosine Similarity cục bộ sử dụng thư viện **NumPy**. Bạn chỉ cần cài đặt MongoDB cục bộ, khởi động dịch vụ và chạy ứng dụng mà không cần cấu hình thêm bất cứ Index phức tạp nào!
+2. **Tạo và kích hoạt Virtual Environment:**
+   ```bash
+   python -m venv venv
+   
+   # Windows:
+   .\venv\Scripts\Activate.ps1
+   
+   # macOS/Linux:
+   source venv/bin/activate
+   ```
 
----
+3. **Cài đặt thư viện:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## 🐳 10. Chạy Ứng dụng bằng Docker & Docker Compose
-
-Hệ thống cung cấp sẵn tệp tin `docker-compose.yml` để khởi chạy ứng dụng nhanh chóng cùng một cụm MongoDB cục bộ bị cô lập.
-
-### Khởi chạy môi trường Docker
-```bash
-# Xây dựng và khởi chạy các dịch vụ ở chế độ nền (background)
-docker compose up -d --build
-```
-Cấu hình Docker Compose sẽ tự động khởi tạo:
-*   Dịch vụ **FastAPI App Container** tại cổng `8000`.
-*   Dịch vụ **MongoDB Container** tại cổng `27017` kèm cơ chế kiểm tra sức khỏe (healthcheck) tự động.
-
-### Dừng dịch vụ Docker
-```bash
-docker compose down -v
-```
+4. **Tạo cấu hình môi trường:**
+   ```bash
+   cp .env.example .env
+   # Hãy cập nhật MONGODB_URL, OPENAI_API_KEY và SECRET_KEY trong file .env
+   ```
 
 ---
 
-## 🧪 11. Hướng dẫn Chạy Kiểm thử (Testing Guide)
+## 🚀 Chạy ứng dụng (Running the App)
 
-Hệ thống được bảo vệ bởi bộ 64 bài kiểm thử tích hợp và kiểm thử đơn vị tự động bao phủ 100% các Agent, Guard, nghiệp vụ ví, RAG tìm kiếm và API endpoints.
+- **Lệnh chạy local server:**
+  ```bash
+  uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+  ```
 
+- **Swagger UI (Tài liệu API tương tác):**
+  Truy cập: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+- **Health Check Endpoint:**
+  ```text
+  GET http://localhost:8000/health
+  ```
+
+---
+
+## 🔗 Tổng quan API (API Overview)
+
+Hệ thống tuân theo thiết kế RESTful, chia theo từng phân hệ. Một số API chính:
+
+- **Auth**: `/api/v1/login` (cấp phát JWT token).
+- **Users**: `/api/v1/users` (đăng ký, lấy thông tin cá nhân).
+- **Wallets**: `/api/v1/wallets` (tạo ví mặc định, tra cứu số dư).
+- **Transactions**: `/api/v1/transactions` (nạp, rút, chuyển khoản).
+- **Fees**: `/api/v1/fees` (tra cứu biểu phí giao dịch).
+- **Documents**: `/api/v1/documents` (quản lý, tải lên tài liệu phục vụ RAG).
+- **Chat**: `/chat` (tương tác trực tiếp với trợ lý ảo).
+
+---
+
+## 🧪 Kiểm thử (Testing)
+
+Dự án sở hữu bộ test toàn diện. Hầu hết các test giao tiếp với database đều được mock để có thể chạy offline độc lập với cấu hình môi trường gốc.
+Để chạy test:
 ```bash
-# Chạy toàn bộ bộ kiểm thử tự động
 pytest
-
-# Chạy kiểm thử cụ thể cho luồng đa tác vụ LangGraph
-pytest tests/test_langgraph_flow.py -v
 ```
 
 ---
 
-## 📈 12. Hướng dẫn Chạy Đánh giá Hiệu năng (Evaluation Guide)
+## ⚠️ Lưu ý & Giới hạn (Notes / Limitations)
 
-Để chạy đánh giá hiệu năng so sánh Legacy RAG vs LangGraph Flow trên bộ 45 kịch bản thực tế:
-
-```bash
-python scripts/run_eval.py
-```
+- Đây là hệ thống backend **mô phỏng** phục vụ mục đích học tập và nghiên cứu kiến trúc Fintech/AI. **TUYỆT ĐỐI KHÔNG** dùng cho các hệ thống Core Banking hay ứng dụng thanh toán tiền thật trên production.
+- Các giao dịch (transactions), tính toán biểu phí (fees) chỉ là logic mock/simulation dựa trên mô hình ví cơ bản.
+- Yêu cầu phải có kết nối Internet để gọi OpenAI API, và một cluster MongoDB thực tế (khuyên dùng MongoDB Atlas) nếu muốn dùng Atlas Vector Search.
 
 ---
-
 
 Số điện thoại: 0909090909
 Mật khẩu: adminpassword123

@@ -141,8 +141,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     else:
         try:
             from openai import AsyncOpenAI
-            from langsmith.wrappers import wrap_openai
-            client = wrap_openai(AsyncOpenAI(api_key=api_key))
+            client = AsyncOpenAI(api_key=api_key)
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn ảo hỗ trợ khách hàng xuất sắc của ví điện tử VSmartPay.\n"
@@ -177,7 +176,26 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             )
             draft_answer = response.choices[0].message.content or ""
         except Exception as e:
-            if retrieved_chunks:
+            print(f"DEBUG LLM ERROR: {type(e).__name__} - {str(e)}")
+            if intent == "BALANCE_INQUIRY" and balance_data:
+                draft_answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Tuy nhiên, số dư khả dụng hiện tại trong tài khoản ví VSmartPay của bạn là {balance_data.get('balance', 0):,} {balance_data.get('currency', 'VND')}."
+            elif intent == "TRANSACTION_STATUS" and txn_data:
+                status_vi = {
+                    "SUCCESS": "Thành công",
+                    "PENDING": "Đang chờ xử lý",
+                    "FAILED": "Thất bại",
+                    "REFUNDED": "Đã hoàn tiền"
+                }.get(txn_data.get("status", ""), txn_data.get("status", ""))
+                draft_answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Tuy nhiên, mã giao dịch {transaction_id} của bạn có trạng thái là: **{status_vi}**. Số tiền giao dịch: {txn_data.get('amount', 0):,} {txn_data.get('currency', 'VND')}."
+            elif intent == "FEE_INQUIRY" and fee_data:
+                tx_type_str = transaction_type or "TRANSFER"
+                type_vi = {
+                    "TRANSFER": "Chuyển tiền",
+                    "WITHDRAWAL": "Rút tiền",
+                    "DEPOSIT": "Nạp tiền"
+                }.get(tx_type_str.upper(), tx_type_str)
+                draft_answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Tuy nhiên, phí áp dụng cho giao dịch {type_vi} với số tiền {amount or 0:,} VND là **{fee_data.get('fee', 0):,} VND**."
+            elif retrieved_chunks:
                 draft_answer = f"Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM. Dựa trên tài liệu tra cứu: {retrieved_chunks[0].text[:250]}..."
             else:
                 draft_answer = "Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM và không có tài liệu cục bộ khả dụng."

@@ -87,7 +87,8 @@ class EscalationPolicy:
             "FAILED_TRANSACTION",
             "REFUND_OR_DISPUTE",
             "FRAUD_OR_SCAM_REPORT",
-            "HUMAN_SUPPORT_REQUEST"
+            "HUMAN_SUPPORT_REQUEST",
+            "KYC_SUPPORT"
         }
         if context_insufficient and intent in sensitive_intents:
             return True, "Tài liệu hướng dẫn hiện tại không đủ thông tin để trả lời câu hỏi nhạy cảm.", "LOW"
