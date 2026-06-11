@@ -132,9 +132,11 @@ async def test_chat_session_ownership_authorization(client):
     # 3. User B tries to access User A's session history -> 403 Forbidden
     history_b_resp = await client.get(f"/chat/sessions/{session_id}/history", headers=headers_b)
     assert history_b_resp.status_code == 403
-    assert history_b_resp.json()["detail"] == "Bạn không có quyền truy cập lịch sử của phiên hội thoại này."
+    assert history_b_resp.json()["message"] == "Bạn không có quyền truy cập lịch sử của phiên hội thoại này."
+    assert history_b_resp.json()["error_code"] == "FORBIDDEN_ACCESS"
     
     # 4. User A tries to access non-existent session -> 404 Not Found
     not_found_resp = await client.get("/chat/sessions/session_not_exist/history", headers=headers_a)
     assert not_found_resp.status_code == 404
-    assert not_found_resp.json()["detail"] == "Phiên hội thoại không tồn tại."
+    assert not_found_resp.json()["message"] == "Phiên hội thoại không tồn tại."
+    assert not_found_resp.json()["error_code"] == "RESOURCE_NOT_FOUND"

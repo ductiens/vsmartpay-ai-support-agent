@@ -20,19 +20,13 @@ class ChatService:
         return await self.repository.get_user_sessions(user_id)
 
     async def get_user_session_history(self, session_id: str, user_id: str):
-        from fastapi import HTTPException, status
+        from app.common.exceptions import NotFoundException, ForbiddenException
         session = await self.repository.get_session_by_id(session_id)
         if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Phiên hội thoại không tồn tại."
-            )
+            raise NotFoundException(message="Phiên hội thoại không tồn tại.")
         
         if session.get("user_id") != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Bạn không có quyền truy cập lịch sử của phiên hội thoại này."
-            )
+            raise ForbiddenException(message="Bạn không có quyền truy cập lịch sử của phiên hội thoại này.")
             
         return await self.repository.get_history(session_id)
 
@@ -49,23 +43,17 @@ class ChatService:
         return serialized_sessions
 
     async def admin_get_session_history(self, session_id: str):
-        from fastapi import HTTPException, status
+        from app.common.exceptions import NotFoundException
         session = await self.repository.get_session_by_id(session_id)
         if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Phiên hội thoại không tồn tại."
-            )
+            raise NotFoundException(message="Phiên hội thoại không tồn tại.")
         return await self.repository.get_history(session_id)
 
     async def admin_send_message(self, session_id: str, message: str, sender: str):
-        from fastapi import HTTPException, status
+        from app.common.exceptions import NotFoundException
         session = await self.repository.get_session_by_id(session_id)
         if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Phiên hội thoại không tồn tại."
-            )
+            raise NotFoundException(message="Phiên hội thoại không tồn tại.")
             
         # 1. Ghi tin nhắn CSKH với role="assistant" và sender="HUMAN_AGENT"
         await self.repository.log_message(

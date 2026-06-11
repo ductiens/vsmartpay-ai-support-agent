@@ -7,6 +7,7 @@ from jose import jwt, JWTError
 from app.config import settings
 from app.modules.users.repository import UsersRepository
 from app.modules.users.schema import UserResponse
+from app.common.exceptions import UnauthorizedException, ForbiddenException
 
 # Define HTTPBearer schema for JWT Authentication
 security_scheme = HTTPBearer(auto_error=False)
@@ -40,10 +41,9 @@ async def get_current_user(
     Decodes the JWT token and fetches the current user from MongoDB.
     Raises 401 Unauthorized if invalid or expired.
     """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
+    credentials_exception = UnauthorizedException(
+        message="Could not validate credentials",
+        details={"headers": {"WWW-Authenticate": "Bearer"}}
     )
     
     if credentials is None:
@@ -63,10 +63,9 @@ async def get_current_user(
     # Query user from database
     user = await UsersRepository().get_user_by_id(user_id)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
+        raise UnauthorizedException(
+            message="User not found",
+            details={"headers": {"WWW-Authenticate": "Bearer"}}
         )
         
     return UserResponse(**user)
@@ -80,8 +79,7 @@ async def get_current_admin(
     Ensures that the current user has the 'admin' role.
     """
     if getattr(current_user, "role", "user") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Bạn không có quyền truy cập chức năng này. Chỉ dành cho Admin."
+        raise ForbiddenException(
+            message="Bạn không có quyền truy cập chức năng này. Chỉ dành cho Admin."
         )
     return current_user

@@ -94,3 +94,35 @@ class ForbiddenException(AppException):
             status_code=403,
             details=details
         )
+
+
+class UnauthorizedException(AppException):
+    """Exception raised when authentication fails or is missing (HTTP 401)."""
+    def __init__(
+        self,
+        message: str = "Xác thực thất bại",
+        error_code: str = "UNAUTHORIZED",
+        details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=401,
+            details=details
+        )
+
+
+class InternalServerException(AppException):
+    """Exception raised for unexpected server errors (HTTP 500)."""
+    def __init__(
+        self,
+        message: str = "Lỗi máy chủ nội bộ",
+        error_code: str = "INTERNAL_SERVER_ERROR",
+        details: Optional[Dict[str, Any]] = None
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=500,
+            details=details
+        )

@@ -26,6 +26,26 @@ def setup_exception_handlers(app: FastAPI):
             details=exc.errors()
         )
 
+    from fastapi import HTTPException
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request, exc: HTTPException):
+        # Translate FastAPI's HTTPException to our standard error response
+        error_code = "HTTP_ERROR"
+        if exc.status_code == 401:
+            error_code = "UNAUTHORIZED"
+        elif exc.status_code == 403:
+            error_code = "FORBIDDEN"
+        elif exc.status_code == 404:
+            error_code = "NOT_FOUND"
+        elif exc.status_code == 400:
+            error_code = "BAD_REQUEST"
+            
+        return error_response(
+            message=str(exc.detail),
+            error_code=error_code,
+            status_code=exc.status_code
+        )
+
     @app.exception_handler(Exception)
     async def generic_exception_handler(request, exc: Exception):
         logger.error(f"Unhandled server error: {exc}", exc_info=True)

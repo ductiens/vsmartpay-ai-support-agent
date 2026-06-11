@@ -445,8 +445,8 @@ class DocumentService:
         return UploadResult(doc_id=doc_id, file_name=file_name, status="processing")
 
     async def get_document_status(self, doc_id: str):
-        from fastapi import HTTPException
         from app.modules.documents.schema import DocStatusResponse
+        from app.common.exceptions import NotFoundException
         doc_col = self.documents_collection
         if doc_col is not None:
             doc = await doc_col.find_one({"doc_id": doc_id}, {"_id": 0})
@@ -458,7 +458,7 @@ class DocumentService:
                     chunk_count=doc.get("chunk_count", 0),
                     error_message=doc.get("error_message")
                 )
-        raise HTTPException(status_code=404, detail="Document not found.")
+        raise NotFoundException(message="Document not found.")
 
     async def list_documents(self):
         """Lấy danh sách tất cả tài liệu, sắp xếp mới nhất trước."""
@@ -485,14 +485,14 @@ class DocumentService:
         Xóa tài liệu và tất cả các chunk embedding liên quan.
         Raise HTTPException 404 nếu tài liệu không tồn tại.
         """
-        from fastapi import HTTPException
+        from app.common.exceptions import InternalServerException, NotFoundException
         doc_col = self.documents_collection
         if doc_col is None:
-            raise HTTPException(status_code=500, detail="Database not configured.")
+            raise InternalServerException(message="Database not configured.")
         
         doc = await doc_col.find_one({"doc_id": doc_id})
         if not doc:
-            raise HTTPException(status_code=404, detail="Document not found.")
+            raise NotFoundException(message="Document not found.")
         
         # Xóa tất cả chunk embeddings thuộc về tài liệu này
         await self.vector_store.delete_chunks_by_doc_id(doc_id)
@@ -502,17 +502,17 @@ class DocumentService:
 
     async def get_document_chunks(self, doc_id: str):
         """Lấy danh sách tất cả chunk thuộc một tài liệu cụ thể."""
-        from fastapi import HTTPException
         from app.modules.documents.schema import DocumentChunkItem
+        from app.common.exceptions import InternalServerException, NotFoundException
         
         # Check if doc exists
         doc_col = self.documents_collection
         if doc_col is None:
-            raise HTTPException(status_code=500, detail="Database not configured.")
+            raise InternalServerException(message="Database not configured.")
             
         doc = await doc_col.find_one({"doc_id": doc_id})
         if not doc:
-            raise HTTPException(status_code=404, detail="Document not found.")
+            raise NotFoundException(message="Document not found.")
             
         chunks_col = self.chunks_collection
         if chunks_col is None:
@@ -538,12 +538,12 @@ class DocumentService:
         ]
 
     async def handle_batch_upload(self, files, background_tasks, agent_scope, kb_type, category, language):
-        from fastapi import HTTPException
+        from app.common.exceptions import BadRequestException
         if not files:
-            raise HTTPException(status_code=400, detail="No files uploaded.")
+            raise BadRequestException(message="No files uploaded.")
             
         if len(files) > 10:
-            raise HTTPException(status_code=400, detail="Cannot upload more than 10 files in a single request.")
+            raise BadRequestException(message="Cannot upload more than 10 files in a single request.")
 
         # Calculate total size and pre-read files
         total_size = 0
@@ -568,7 +568,7 @@ class DocumentService:
 
         # Max 50MB total per request
         if total_size > 50 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Total request payload size exceeds 50MB limit.")
+            raise BadRequestException(message="Total request payload size exceeds 50MB limit.")
 
         # 2. Register files and dispatch background processing tasks
         for file_name, file_bytes in file_payloads:
