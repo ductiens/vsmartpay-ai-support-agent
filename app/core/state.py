@@ -24,6 +24,7 @@ class SupportAgentState(TypedDict, total=False):
     sources: List[Any]
     metadata: Dict[str, Any]
     doc_ids: List[str]
+    streaming_queue: Any
     kb_type: str
     agent_scope: str
     retrieval_filter: Dict[str, Any]

@@ -12,6 +12,8 @@ from app.modules.chat.service import ChatService
 router = APIRouter(tags=["Chat"])
 chat_service = ChatService()
 
+from fastapi.responses import StreamingResponse
+
 @router.post("/chat", response_model=BaseSuccessResponse[ChatResponse])
 async def chat(
     request: ChatRequest,
@@ -22,6 +24,18 @@ async def chat(
     """
     request.user_id = current_user.user_id
     return success_response(data=await chat_service.process_message(request))
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """
+    Endpoint chat hỗ trợ cơ chế Server-Sent Events (SSE) để stream câu trả lời từng chữ (token).
+    """
+    request.user_id = current_user.user_id
+    from app.core.graph import execute_graph_stream
+    return StreamingResponse(execute_graph_stream(request), media_type="text/event-stream")
 
 @router.get("/chat/sessions", response_model=BaseSuccessResponse[List[ChatSessionResponse]])
 async def get_sessions(

@@ -6,9 +6,11 @@ from app.modules.rag.retriever import RAGRetriever
 
 async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Retrieve scoped chunks from MongoDB Atlas Vector Search and generate a draft answer
-    integrating tool results and retrieval context.
+    RAG Agent: Lấy context từ Retrieval, gọi LLM để sinh draft_answer.
+    Nếu có streaming_queue trong state, sẽ đẩy từng chữ vào queue.
     """
+    streamed_to_queue = False
+    
     user_message = state.get("user_message", "") or ""
     intent = state.get("intent", "FAQ_GENERAL")
     kb_type = state.get("kb_type")
@@ -166,15 +168,35 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 f"Phản hồi của bạn:"
             )
             
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.2
-            )
-            draft_answer = response.choices[0].message.content or ""
+            queue = state.get("streaming_queue")
+            draft_answer = ""
+            if queue:
+                response_stream = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2,
+                    stream=True
+                )
+                async for chunk in response_stream:
+                    token = chunk.choices[0].delta.content
+                    if token:
+                        draft_answer += token
+                        await queue.put({"type": "token", "content": token})
+                streamed_to_queue = True
+            else:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2,
+                    stream=False
+                )
+                draft_answer = response.choices[0].message.content or ""
         except Exception as e:
             print(f"DEBUG LLM ERROR: {type(e).__name__} - {str(e)}")
             if intent == "BALANCE_INQUIRY" and balance_data:
@@ -200,6 +222,10 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             else:
                 draft_answer = "Đã xảy ra sự cố kỹ thuật khi kết nối dịch vụ LLM và không có tài liệu cục bộ khả dụng."
                 
+    queue = state.get("streaming_queue")
+    if queue and not streamed_to_queue and draft_answer:
+        await queue.put({"type": "token", "content": draft_answer})
+
     return {
         "retrieved_chunks": retrieved_chunks,
         "retrieval_score": retrieval_score,
