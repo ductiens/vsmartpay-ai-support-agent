@@ -98,7 +98,8 @@ class ChatRepository:
                     "content": doc.get("content"),
                     "timestamp": doc.get("timestamp"),
                     "intent": doc.get("intent"),
-                    "sources": doc.get("sources") or []
+                    "sources": doc.get("sources") or [],
+                    "sender": doc.get("sender")
                 })
             return history
         return []

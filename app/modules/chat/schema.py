@@ -60,3 +60,4 @@ class ChatMessageResponse(BaseModel):
     timestamp: datetime
     intent: Optional[str] = None
     sources: List[Dict[str, Any]] = []
+    sender: Optional[str] = None

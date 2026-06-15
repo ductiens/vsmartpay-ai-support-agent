@@ -88,12 +88,44 @@ class TransactionsService:
                         details={"required": total_debit, "available": sender_wallet["balance"], "fee": fee},
                     )
                 assert request.recipient_user_id is not None
-                recipient_wallet = await self.wallets_repo.get_wallet_by_user_id(request.recipient_user_id)
+                recipient_input = request.recipient_user_id.strip()
+                
+                recipient_wallet = None
+                resolved_recipient_user_id = None
+
+                # 1. Try to find directly as user_id
+                recipient_wallet = await self.wallets_repo.get_wallet_by_user_id(recipient_input)
+                if recipient_wallet:
+                    resolved_recipient_user_id = recipient_input
+                
+                # 2. Try to find as wallet_id
+                if not recipient_wallet:
+                    recipient_wallet = await self.wallets_repo.get_wallet_by_id(recipient_input)
+                    if recipient_wallet:
+                        resolved_recipient_user_id = recipient_wallet["user_id"]
+                
+                # 3. Try to find as phone number
+                if not recipient_wallet:
+                    from app.modules.users.repository import UsersRepository
+                    users_repo = UsersRepository()
+                    recipient_user = await users_repo.get_user_by_phone(recipient_input)
+                    if recipient_user:
+                        resolved_recipient_user_id = recipient_user["user_id"]
+                        recipient_wallet = await self.wallets_repo.get_wallet_by_user_id(resolved_recipient_user_id)
+
                 if recipient_wallet is None:
                     raise NotFoundException(
-                        message=f"Ví của người nhận '{request.recipient_user_id}' không tồn tại",
+                        message=f"Ví của người nhận '{recipient_input}' không tồn tại",
                         error_code="RECIPIENT_WALLET_NOT_FOUND",
                     )
+                
+                if resolved_recipient_user_id == user_id:
+                    raise BadRequestException(
+                        message="Không thể chuyển tiền cho chính mình",
+                        error_code="SELF_TRANSFER",
+                    )
+
+                txn_doc["recipient_user_id"] = resolved_recipient_user_id
                 txn_doc["recipient_wallet_id"] = recipient_wallet["wallet_id"]
                 sender_new_balance = sender_wallet["balance"] - total_debit
                 await self.wallets_repo.update_wallet_balance(sender_wallet["wallet_id"], sender_new_balance, utc_now)
