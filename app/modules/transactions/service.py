@@ -1,6 +1,6 @@
 import logging
 from app.common.utils import generate_id, now_utc
-from app.common.exceptions import BadRequestException, DuplicateRequestException, InsufficientBalanceException, NotFoundException, ForbiddenException
+from app.common.exceptions import AppException, BadRequestException, DuplicateRequestException, InsufficientBalanceException, NotFoundException, ForbiddenException
 from app.modules.transactions.repository import TransactionsRepository
 from app.modules.transactions.schema import CreateTransactionRequest, TransactionResponse, TransactionListResponse
 from app.modules.wallets.repository import WalletsRepository
@@ -139,7 +139,7 @@ class TransactionsService:
                 recipient_new_balance = recipient_wallet["balance"] + request.amount
                 await self.wallets_repo.update_wallet_balance(recipient_wallet["wallet_id"], recipient_new_balance, utc_now)
             txn_doc["status"] = "SUCCESS"
-        except (InsufficientBalanceException, NotFoundException):
+        except AppException:
             raise
         except Exception as e:
             txn_doc["status"] = "FAILED"

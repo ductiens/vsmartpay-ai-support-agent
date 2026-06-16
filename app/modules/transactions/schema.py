@@ -6,10 +6,10 @@ from app.common.constants import TransactionType, TransactionStatus
 
 class CreateTransactionRequest(BaseModel):
     amount: int = Field(..., gt=0, description="Số tiền giao dịch (đơn vị nhỏ nhất, VD: VND)", examples=[100000])
-    type: TransactionType = Field(..., description="Loại giao dịch: DEPOSIT, WITHDRAWAL, TRANSFER", examples=[TransactionType.DEPOSIT])
-    recipient_user_id: Optional[str] = Field(None, description="User ID người nhận (bắt buộc khi type=TRANSFER)", examples=["usr_002"])
-    description: Optional[str] = Field(None, max_length=500, examples=["Nạp tiền vào ví"])
-    idempotency_key: Optional[str] = Field(None, description="Khóa idempotency để tránh giao dịch trùng lặp", examples=["idem_deposit_001"])
+    type: TransactionType = Field(..., description="Loại giao dịch: DEPOSIT, WITHDRAWAL, TRANSFER", examples=[TransactionType.TRANSFER])
+    recipient_user_id: Optional[str] = Field(None, description="User ID, số điện thoại hoặc Wallet ID người nhận (bắt buộc khi type=TRANSFER)", examples=["0987654321"])
+    description: Optional[str] = Field(None, max_length=500, examples=["Chuyển tiền ăn trưa"])
+    idempotency_key: Optional[str] = Field(None, description="Khóa idempotency để tránh giao dịch trùng lặp", examples=["idem_transfer_001"])
 
 class TransactionResponse(BaseModel):
     transaction_id: str

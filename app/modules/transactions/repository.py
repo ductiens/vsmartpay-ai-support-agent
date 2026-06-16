@@ -32,11 +32,13 @@ class TransactionsRepository:
         return await self.collection.find_one({"transaction_id": transaction_id}, {"_id": 0})
 
     async def get_transactions_by_user_id(self, user_id: str, limit: int = 20, skip: int = 0) -> List[Dict[str, Any]]:
-        cursor = self.collection.find({"user_id": user_id}, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+        query = {"$or": [{"user_id": user_id}, {"recipient_user_id": user_id}]}
+        cursor = self.collection.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
         return await cursor.to_list(length=limit)
 
     async def count_transactions_by_user_id(self, user_id: str) -> int:
-        return await self.collection.count_documents({"user_id": user_id})
+        query = {"$or": [{"user_id": user_id}, {"recipient_user_id": user_id}]}
+        return await self.collection.count_documents(query)
 
     async def get_transaction_by_idempotency_key(self, key: str) -> Optional[Dict[str, Any]]:
         return await self.collection.find_one({"idempotency_key": key}, {"_id": 0})

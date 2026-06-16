@@ -19,8 +19,15 @@ RULES = {
                              "mung sinh nhat", "chia tien"],
 }
 
+import unicodedata
+
+def remove_accents(input_str: str) -> str:
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+
 def rule_classify(text: str) -> str | None:
+    text_unaccented = remove_accents(text).lower()
     for label, keywords in RULES.items():
-        if any(kw in text for kw in keywords):
+        if any(kw in text_unaccented for kw in keywords):
             return label
     return None
