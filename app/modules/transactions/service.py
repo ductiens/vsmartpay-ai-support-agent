@@ -5,6 +5,7 @@ from app.modules.transactions.repository import TransactionsRepository
 from app.modules.transactions.schema import CreateTransactionRequest, TransactionResponse, TransactionListResponse
 from app.modules.wallets.repository import WalletsRepository
 from app.modules.fees.service import FeesService, VALID_TRANSACTION_TYPES
+from app.modules.transactions.classifier.model import classify_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,11 @@ class TransactionsService:
         fee = self.fees_svc.calculate_fee(tx_type, request.amount)
         utc_now = now_utc()
         transaction_id = f"txn_{generate_id()}"
+        
+        category = None
+        if request.description:
+            clf_result = classify_transaction(request.description)
+            category = clf_result.get("label")
 
         txn_doc = {
             "transaction_id": transaction_id,
@@ -62,6 +68,7 @@ class TransactionsService:
             "recipient_user_id": request.recipient_user_id,
             "recipient_wallet_id": None,
             "description": request.description,
+            "category": category,
             "idempotency_key": request.idempotency_key,
             "created_at": utc_now,
             "updated_at": utc_now,

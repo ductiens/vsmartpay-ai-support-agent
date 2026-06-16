@@ -23,6 +23,12 @@ async def lifespan(app: FastAPI):
             await UsersRepository().ensure_indexes()
             await WalletsRepository().ensure_indexes()
             await TransactionsRepository().ensure_indexes()
+        try:
+            from app.modules.transactions.classifier.model import get_classifier
+            get_classifier()
+            logger.info("Transaction classifier model preloaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to preload transaction classifier model: {e}")
     except Exception as e:
         logger.error(f"Startup database connection or index setup failed: {e}")
     yield

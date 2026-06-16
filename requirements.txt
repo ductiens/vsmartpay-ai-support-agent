@@ -44,3 +44,6 @@ langchain-openai>=0.1.0
 langsmith==0.1.147
 
 transformers==4.53.3
+# Install PyTorch CPU-only version (để tránh clone về cài bản CUDA nặng ~2GB)
+# python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch

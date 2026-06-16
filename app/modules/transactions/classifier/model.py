@@ -21,6 +21,10 @@ def get_classifier():
         device=-1  # CPU, đổi thành 0 nếu có GPU
     )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 def classify_transaction(description: str) -> dict:
     text_clean = clean_text(description)
     
@@ -30,14 +34,18 @@ def classify_transaction(description: str) -> dict:
         return {"label": rule_result, "source": "rule", "confidence": 1.0}
     
     # Model nếu không match rule
-    classifier = get_classifier()
-    result = classifier(text_clean)[0]
-    
-    if result["score"] < THRESHOLD:
-        return {"label": "Khác", "source": "model", "confidence": result["score"]}
-    
-    return {
-        "label": result["label"],
-        "source": "model", 
-        "confidence": round(result["score"], 3)
-    }
+    try:
+        classifier = get_classifier()
+        result = classifier(text_clean)[0]
+        
+        if result["score"] < THRESHOLD:
+            return {"label": "Khác", "source": "model", "confidence": result["score"]}
+        
+        return {
+            "label": result["label"],
+            "source": "model", 
+            "confidence": round(result["score"], 3)
+        }
+    except Exception as e:
+        logger.warning(f"Classification model error or offline: {e}. Fallback to rule engine only.")
+        return {"label": "Khác", "source": "fallback_error", "confidence": 0.0}

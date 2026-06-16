@@ -22,6 +22,7 @@ class TransactionResponse(BaseModel):
     recipient_user_id: Optional[str] = None
     recipient_wallet_id: Optional[str] = None
     description: Optional[str] = None
+    category: Optional[str] = Field(None, description="Nhãn giao dịch tự động phân loại, VD: Ăn uống, Di chuyển...")
     idempotency_key: Optional[str] = None
     created_at: datetime
 
