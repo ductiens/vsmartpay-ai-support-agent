@@ -81,6 +81,13 @@ def clean_text(text: str) -> str:
         cleaned_lines.append(line)
     text = "\n".join(cleaned_lines)
     
+    # Nối các từ bị gãy dòng bằng dấu gạch ngang
+    text = text.replace('-\n', '')
+    
+    # Sửa lỗi gãy dòng (ngắt giữa chừng / chữ dính nhau) trong PDF
+    # Thay thế \n đơn lẻ thành khoảng trắng, ngoại trừ khi dòng tiếp theo là list (-, *, 1.) hoặc table (|)
+    text = re.sub(r'(?<!\n)\n(?!\n)(?![\-\*\|]|\d+\.)', ' ', text)
+    
     # 3. Xóa dòng trống thừa (giữ tối đa 1 dòng trống liên tiếp)
     text = re.sub(r'\n{3,}', '\n\n', text)
     
@@ -182,7 +189,45 @@ class DocumentService:
             
             for idx in range(n_pages):
                 page = doc.load_page(idx)
-                page_text = page.get_text() or ""  # type: ignore[attr-defined]
+                
+                # 1. Trích xuất Tables
+                tables_md = []
+                if hasattr(page, "find_tables"):
+                    tabs = page.find_tables()  # type: ignore
+                    for tab in tabs:
+                        rows = tab.extract()
+                        if not rows:
+                            continue
+                        
+                        header = [str(c).strip().replace("\n", " ") if c is not None else "" for c in rows[0]]
+                        markdown_lines = []
+                        markdown_lines.append("| " + " | ".join(header) + " |")
+                        markdown_lines.append("| " + " | ".join(["---"] * len(header)) + " |")
+                        for row in rows[1:]:
+                            row_clean = [str(c).strip().replace("\n", " ") if c is not None else "" for c in row]
+                            if len(row_clean) < len(header):
+                                row_clean.extend([""] * (len(header) - len(row_clean)))
+                            elif len(row_clean) > len(header):
+                                row_clean = row_clean[:len(header)]
+                            markdown_lines.append("| " + " | ".join(row_clean) + " |")
+                        tables_md.append("\n".join(markdown_lines))
+                
+                # 2. Trích xuất Text blocks (loại bỏ header/footer sát lề)
+                blocks = page.get_text("blocks")  # type: ignore[attr-defined]
+                text_blocks = []
+                page_rect = page.rect
+                
+                for b in blocks:
+                    if b[6] == 0:  # block type 0 is text
+                        x0, y0, x1, y1, text_content, block_no, block_type = b
+                        # Bỏ qua text quá sát mép trên hoặc mép dưới (ví dụ margin 50 pixel)
+                        if y0 < 50 or y1 > page_rect.height - 50:
+                            continue
+                        text_blocks.append(text_content)
+                
+                # Gộp blocks và tables
+                page_text = "\n\n".join(text_blocks + tables_md)
+                
                 # Đếm số ký tự (bỏ qua khoảng trắng)
                 if len(page_text.strip()) < 100:
                     scanned_pages_count += 1
@@ -313,7 +358,7 @@ class DocumentService:
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=self._count_tokens,
-            separators=["\n\n", "\n", " ", ""]
+            separators=["\n\n", ". ", "\n", " ", ""]
         )
         
         all_chunks = []
@@ -332,11 +377,17 @@ class DocumentService:
                 header_chunks = header_splitter.split_text(text)
                 
                 for hc in header_chunks:
-                    active_heading = heading
-                    for h_level in ["Header 4", "Header 3", "Header 2", "Header 1"]:
+                    breadcrumbs = []
+                    if heading:
+                        breadcrumbs.append(heading)
+                    for h_level in ["Header 1", "Header 2", "Header 3", "Header 4"]:
                         if h_level in hc.metadata:
-                            active_heading = hc.metadata[h_level]
-                            break
+                            breadcrumbs.append(hc.metadata[h_level])
+                            
+                    if breadcrumbs:
+                        active_heading = " > ".join(breadcrumbs)
+                    else:
+                        active_heading = heading
                             
                     # Nếu chunk sau khi tách vẫn quá lớn, tiếp tục dùng Recursive
                     if self._count_tokens(hc.page_content) > chunk_size:
@@ -647,6 +698,8 @@ class DocumentService:
                     "content": content,
                     "embedding": embedding,
                     "embedding_model": settings.EMBEDDING_MODEL,
+                    "chunk_size": getattr(settings, "CHUNK_SIZE", 800),
+                    "chunk_overlap": getattr(settings, "CHUNK_OVERLAP", 100),
                     "file_name": file_name,
                     "page": item["page"],
                     "heading": item["heading"],
