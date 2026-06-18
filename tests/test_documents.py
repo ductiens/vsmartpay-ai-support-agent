@@ -158,7 +158,7 @@ def test_detect_file_type_helper():
 
 
 def test_clean_text_helper():
-    from app.modules.documents.service import clean_text
+    from app.modules.documents.cleaner import clean_text
     
     # Test Vietnamese Unicode NFC normalization
     # "Hòa" can be written as H-o-a-` (decomposed) or Hoa` (composed NFC)
@@ -183,7 +183,7 @@ def test_clean_text_helper():
 
 
 def test_remove_repeated_headers_footers_helper():
-    from app.modules.documents.service import remove_repeated_headers_footers
+    from app.modules.documents.cleaner import remove_repeated_headers_footers
     
     pages = [
         "Chinh sach VSmartPay\nNoi dung trang 1\nFooter VSmartPay 2026",
@@ -220,8 +220,8 @@ def test_pdf_scan_detection_fails_helper():
     mock_doc.load_page.side_effect = [mock_page1, mock_page2, mock_page3]
     
     with patch("fitz.open", return_value=mock_doc):
-        with pytest.raises(ValueError, match="file scan chưa được hỗ trợ"):
-            service._extract_text("scanned.pdf", b"%PDF-1.4\nscanned")
+        with pytest.raises(ValueError, match="file scan ch\u01b0a \u0111\u01b0\u1ee3c h\u1ed7 tr\u1ee3"):
+            service.parser.extract_text("scanned.pdf", b"%PDF-1.4\nscanned")
 
 
 def test_smart_chunking_with_markdown():
@@ -240,7 +240,7 @@ def test_smart_chunking_with_markdown():
         {"text": markdown_text, "page": 1, "heading": None}
     ]
     
-    chunks = service._chunk_document(extracted_pages, chunk_size=100, chunk_overlap=10)
+    chunks = service.chunker.chunk_document(extracted_pages, chunk_size=100, chunk_overlap=10)
     assert len(chunks) > 0
     
     # Heading should be extracted from markdown header splitter metadata
