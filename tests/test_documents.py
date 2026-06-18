@@ -210,11 +210,11 @@ def test_pdf_scan_detection_fails_helper():
     # Mock PyMuPDF fitz.open to return pages where > 50% are scanned (fewer than 100 characters)
     mock_doc = MagicMock()
     mock_page1 = MagicMock()
-    mock_page1.get_text.return_value = "It text" # < 100 characters
+    mock_page1.get_text.return_value = [(0, 0, 100, 100, "It text", 0, 0)] # < 100 characters
     mock_page2 = MagicMock()
-    mock_page2.get_text.return_value = "Cung rat it text" # < 100 characters
+    mock_page2.get_text.return_value = [(0, 0, 100, 100, "Cung rat it text", 0, 0)] # < 100 characters
     mock_page3 = MagicMock()
-    mock_page3.get_text.return_value = "A" * 150 # > 100 characters
+    mock_page3.get_text.return_value = [(0, 0, 100, 100, "A" * 150, 0, 0)] # > 100 characters
     
     mock_doc.__len__.return_value = 3
     mock_doc.load_page.side_effect = [mock_page1, mock_page2, mock_page3]
@@ -246,6 +246,6 @@ def test_smart_chunking_with_markdown():
     # Heading should be extracted from markdown header splitter metadata
     assert chunks[0]["heading"] == "Huong dan dang ky"
     # The sub-chunk should inherit the heading Yeu cau dang ky
-    sub_chunk_headings = [c["heading"] for c in chunks if "Yeu cau dang ky" in c["content"] or c["heading"] == "Yeu cau dang ky"]
+    sub_chunk_headings = [c["heading"] for c in chunks if "Yeu cau dang ky" in c["content"] or (c["heading"] and "Yeu cau dang ky" in c["heading"])]
     assert len(sub_chunk_headings) > 0
 
