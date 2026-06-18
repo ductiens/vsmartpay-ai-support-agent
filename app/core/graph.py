@@ -6,6 +6,7 @@ from typing import Dict, Any, Literal
 from langgraph.graph import StateGraph, END
 
 from app.core.state import SupportAgentState
+from app.config import settings
 from app.core.nodes import (
     injection_guard_node,
     intent_agent_node,
@@ -48,12 +49,11 @@ def route_decision(state: SupportAgentState) -> Literal["escalation", "clarifica
     if not grounded:
         return "clarification"
         
-    if confidence < 0.6:
+    if confidence < settings.ROUTING_CONFIDENCE_THRESHOLD:
         # Only escalate if it's a high-risk security or fraud issue.
         # Queries like BALANCE_INQUIRY, FEE_INQUIRY, TRANSACTION_HISTORY, or TRANSACTION_STATUS
         # can ask for clarification or proceed if their confidence is low, and should NOT be force-escalated.
-        high_risk_escalate_intents = ["ACCOUNT_SECURITY", "FRAUD_OR_SCAM_REPORT", "FAILED_TRANSACTION", "REFUND_OR_DISPUTE"]
-        if intent in high_risk_escalate_intents:
+        if intent in settings.ROUTING_HIGH_RISK_INTENTS:
             return "escalation"
         return "clarification"
         
@@ -67,8 +67,7 @@ def route_after_intent(state: SupportAgentState) -> Literal["escalation", "tool_
         return "escalation"
         
     intent = state.get("intent", "FAQ_GENERAL")
-    direct_escalation_intents = ["HUMAN_SUPPORT_REQUEST", "FRAUD_OR_SCAM_REPORT", "ACCOUNT_SECURITY", "REFUND_OR_DISPUTE"]
-    if intent in direct_escalation_intents:
+    if intent in settings.ROUTING_DIRECT_ESCALATION_INTENTS:
         return "escalation"
         
     return "tool_router"

@@ -41,7 +41,22 @@ class Settings(BaseSettings):
     LLM_AGENT_ENABLED: bool = True
     LLM_AGENT_FALLBACK_TO_RULES: bool = True
 
+    # Routing
+    ROUTING_CONFIDENCE_THRESHOLD: float = 0.6
+    ROUTING_HIGH_RISK_INTENTS: Union[str, List[str]] = ["ACCOUNT_SECURITY", "FRAUD_OR_SCAM_REPORT", "FAILED_TRANSACTION", "REFUND_OR_DISPUTE"]
+    ROUTING_DIRECT_ESCALATION_INTENTS: Union[str, List[str]] = ["HUMAN_SUPPORT_REQUEST", "FRAUD_OR_SCAM_REPORT", "ACCOUNT_SECURITY", "REFUND_OR_DISPUTE"]
 
+    @field_validator("ROUTING_HIGH_RISK_INTENTS", "ROUTING_DIRECT_ESCALATION_INTENTS", mode="before")
+    @classmethod
+    def parse_string_list(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            if v.startswith("["):
+                try:
+                    return json.loads(v)
+                except Exception:
+                    return []
+            return [i.strip() for i in v.split(",") if i.strip()]
+        return v
 
     # API
     API_V1_STR: str = "/api/v1"
