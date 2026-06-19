@@ -2,58 +2,19 @@
 Financial tools for chatbot integration.
 Functions called by LangGraph tool_router_node and legacy ChatService.
 
-These functions query MongoDB (via FinanceRepository) with a JSON file fallback
-if the database is not connected or data is not found.
+These functions query MongoDB to retrieve financial data.
+If the database is not connected or data is not found, they return a generic error message.
 """
-import json
-import os
 import logging
 from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 
-class MockWalletClient:
-    """Fallback client that reads from static JSON files in data/mock/."""
-
-    def __init__(self) -> None:
-        self.mock_dir = "data/mock"
-
-    def _read_json(self, filename: str) -> list:
-        filepath = os.path.join(self.mock_dir, filename)
-        if os.path.exists(filepath):
-            try:
-                with open(filepath, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception:
-                pass
-        return []
-
-    def get_wallet_by_user_id(self, user_id: str) -> Optional[Dict[str, Any]]:
-        wallets = self._read_json("wallets.json")
-        for w in wallets:
-            if w.get("user_id") == user_id:
-                return w
-        # Safe production-ready check: return None if user not found in mock files
-        return None
-
-    def get_transaction_by_id(self, transaction_id: str) -> Optional[Dict[str, Any]]:
-        transactions = self._read_json("transactions.json")
-        for t in transactions:
-            if t.get("transaction_id") == transaction_id:
-                return t
-        # Safe check: return None
-        return None
-
-
-# Standalone fallback client for JSON file reads
-_client = MockWalletClient()
-
-
 async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
     """
     check_balance(user_id) - Call FinanceService to get balance.
-    Falls back to wallets.json if DB is not available or user wallet is not found.
+    Returns error if DB is not available.
     """
     try:
         from app.modules.wallets.service import WalletsService
@@ -69,12 +30,10 @@ async def check_balance(user_id: str) -> Optional[Dict[str, Any]]:
                 "status": wallet_data.status
             }
         except NotFoundException:
-            pass
+            return None
     except Exception as e:
-        logger.warning(f"check_balance via FinanceService failed, falling back to JSON: {e}")
-
-    # Fallback to JSON file
-    return _client.get_wallet_by_user_id(user_id)
+        logger.error(f"check_balance via FinanceService failed: {e}")
+        return {"error": "Hệ thống đang bận, vui lòng thử lại sau"}
 
 
 def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
@@ -86,8 +45,8 @@ def get_fee(transaction_type: str, amount: int) -> Dict[str, Any]:
         fees_service = FeesService()
         fee = fees_service.calculate_fee(transaction_type, amount)
     except Exception as e:
-        logger.warning(f"get_fee via FinanceService failed, falling back to local logic: {e}")
-        fee = 1100 if transaction_type.upper() == "WITHDRAWAL" else 0
+        logger.error(f"get_fee via FinanceService failed: {e}")
+        return {"error": "Hệ thống đang bận, vui lòng thử lại sau"}
 
     return {
         "transaction_type": transaction_type,
@@ -101,7 +60,7 @@ async def get_transaction_status(transaction_id: str, user_id: Optional[str] = N
     """
     get_transaction_status(transaction_id, user_id) - Query MongoDB transactions collection via FinanceService repository.
     Verifies that the transaction belongs to the calling user_id (sender or recipient) if provided.
-    Falls back to reading transactions.json if DB is not available.
+    Returns error if DB is not available.
     """
     try:
         from app.modules.transactions.service import TransactionsService
@@ -121,24 +80,16 @@ async def get_transaction_status(transaction_id: str, user_id: Optional[str] = N
                 "timestamp": txn.get("created_at", "").isoformat() if hasattr(txn.get("created_at", ""), "isoformat") else str(txn.get("created_at", "")),
                 "currency": "VND",
             }
+        return None
     except Exception as e:
-        logger.warning(f"get_transaction_status via FinanceService failed, falling back to JSON: {e}")
-
-    # Fallback to JSON file with security check
-    transactions = _client._read_json("transactions.json")
-    for t in transactions:
-        if t.get("transaction_id") == transaction_id:
-            if user_id is not None and t.get("user_id") != user_id and t.get("recipient_user_id") != user_id:
-                return {"error": "Bạn không có quyền xem thông tin giao dịch này."}
-            return t
-            
-    return None
+        logger.error(f"get_transaction_status via FinanceService failed: {e}")
+        return {"error": "Hệ thống đang bận, vui lòng thử lại sau"}
 
 
 async def get_transaction_history(user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     """
     get_transaction_history(user_id) - Query via FinanceService.
-    Falls back to reading transactions.json if DB is not available.
+    Returns error if DB is not available.
     """
     try:
         from app.modules.transactions.service import TransactionsService
@@ -157,22 +108,18 @@ async def get_transaction_history(user_id: str, limit: int = 10) -> List[Dict[st
                     "timestamp": txn.created_at.isoformat() if hasattr(txn.created_at, "isoformat") else str(txn.created_at),
                     "currency": "VND",
                 })
-            if result:
-                return result
+            return result
         except NotFoundException:
-            pass
+            return []
     except Exception as e:
-        logger.warning(f"get_transaction_history via FinanceService failed, falling back to JSON: {e}")
-
-    # Fallback to JSON file
-    all_txns = _client._read_json("transactions.json")
-    return [t for t in all_txns if t.get("user_id") == user_id][:limit]
+        logger.error(f"get_transaction_history via FinanceService failed: {e}")
+        return [{"error": "Hệ thống đang bận, vui lòng thử lại sau"}]
 
 
 async def get_user_kyc_status(user_id: str) -> str:
     """
     get_user_kyc_status(user_id) - Query via FinanceService.
-    Falls back to reading users.json if DB is not available.
+    Returns error if DB is not available.
     """
     try:
         from app.modules.users.service import UsersService
@@ -183,16 +130,8 @@ async def get_user_kyc_status(user_id: str) -> str:
             user_data = await users_service.get_user(user_id)
             return user_data.kyc_status
         except NotFoundException:
-            pass
+            return "UNVERIFIED"
     except Exception as e:
-        logger.warning(f"get_user_kyc_status via FinanceService failed, falling back to JSON: {e}")
-
-    # Fallback to JSON file
-    users = _client._read_json("users.json")
-    for u in users:
-        if u.get("user_id") == user_id:
-            return u.get("kyc_status", "UNVERIFIED")
-    return "UNVERIFIED"
-
-
+        logger.error(f"get_user_kyc_status via FinanceService failed: {e}")
+        return "ERROR: Hệ thống đang bận, vui lòng thử lại sau"
 
