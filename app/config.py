@@ -10,6 +10,11 @@ class Settings(BaseSettings):
         extra="ignore"
     )
 
+    # Cloudinary
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+
     APP_NAME: str = "VSmartPay AI Support Agent"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False

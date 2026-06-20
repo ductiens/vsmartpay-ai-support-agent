@@ -20,6 +20,7 @@ class DocStatusResponse(BaseModel):
     status: str
     chunk_count: int
     error_message: Optional[str] = None
+    cloudinary_url: Optional[str] = None
 
 class DocumentListItem(BaseModel):
     doc_id: str
@@ -27,6 +28,7 @@ class DocumentListItem(BaseModel):
     status: str
     chunk_count: int
     error_message: Optional[str] = None
+    cloudinary_url: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

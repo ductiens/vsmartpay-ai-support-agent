@@ -10,6 +10,7 @@ from app.modules.rag.vector_store import VectorStoreService
 
 from app.modules.documents.parser import detect_file_type, DocumentParser
 from app.modules.documents.chunker import DocumentChunker
+from app.common.cloudinary_client import upload_file_to_cloudinary
 
 
 class DocumentService:
@@ -108,7 +109,8 @@ class DocumentService:
                     file_name=doc["file_name"],
                     status=doc["status"],
                     chunk_count=doc.get("chunk_count", 0),
-                    error_message=doc.get("error_message")
+                    error_message=doc.get("error_message"),
+                    cloudinary_url=doc.get("cloudinary_url")
                 )
         raise NotFoundException(message="Document not found.")
 
@@ -127,6 +129,7 @@ class DocumentService:
                 status=d["status"],
                 chunk_count=d.get("chunk_count", 0),
                 error_message=d.get("error_message"),
+                cloudinary_url=d.get("cloudinary_url"),
                 created_at=d.get("created_at"),
                 updated_at=d.get("updated_at")
             ) for d in docs
@@ -274,6 +277,9 @@ class DocumentService:
             extracted_pages = self.parser.extract_text(file_name, file_bytes)
             raw_text = "\n\n".join([p["text"] for p in extracted_pages])
 
+            # 1.5 Upload to Cloudinary
+            cloudinary_url = await upload_file_to_cloudinary(file_bytes, file_name)
+
             # 2. Chia chunk kết hợp cấu trúc
             chunks = self.chunker.chunk_document(extracted_pages)
             if not chunks:
@@ -324,6 +330,7 @@ class DocumentService:
                     "$set": {
                         "status": "processed",
                         "raw_text": raw_text,
+                        "cloudinary_url": cloudinary_url,
                         "chunk_count": len(chunks),
                         "updated_at": utc_now
                     }
