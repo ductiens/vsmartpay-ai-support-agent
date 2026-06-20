@@ -53,6 +53,10 @@ class IntentClassifier:
         if any(w in msg_lower for w in ["số dư", "balance", "tài khoản còn bao nhiêu", "tôi còn bao nhiêu tiền"]):
             return IntentClassification(intent=IntentTaxonomy.BALANCE_INQUIRY.value, confidence=0.95)
 
+        # 5b. Spending Statistics
+        if any(w in msg_lower for w in ["chi tiêu", "chi bao nhiêu", "tiêu bao nhiêu", "thống kê chi", "tổng chi"]):
+            return IntentClassification(intent=IntentTaxonomy.SPENDING_STATISTICS.value, confidence=0.95)
+
         # 6. Fraud or Scam Report
         if any(w in msg_lower for w in ["lừa đảo", "scam", "bị gạt"]):
             return IntentClassification(intent=IntentTaxonomy.FRAUD_OR_SCAM_REPORT.value, confidence=0.95)
@@ -94,6 +98,7 @@ class IntentClassifier:
                     f"{', '.join(intents_list)}\n\n"
                     "Các quy tắc đặc biệt:\n"
                     "- Nếu khách hàng hỏi về tiền còn bao nhiêu hoặc kiểm tra số dư -> BALANCE_INQUIRY\n"
+                    "- Nếu khách hàng hỏi về thống kê chi tiêu, tổng số tiền đã tiêu, chi bao nhiêu tiền vào việc gì -> SPENDING_STATISTICS\n"
                     "- Nếu khách hàng hỏi về lịch sử giao dịch, tra cứu biến động số dư, xem sao kê -> TRANSACTION_HISTORY\n"
                     "- Nếu khách hàng hỏi han bot là ai, introduce, giới thiệu -> BOT_IDENTITY\n"
                     "- Nếu khách hàng chào hỏi xã giao thông thường -> FAQ_GENERAL\n"
@@ -128,6 +133,8 @@ class IntentClassifier:
 
         # Fallback to local rule-based heuristics logic if LLM failed
         # Basic check for partial matches as a softer backup
+        if "chi tiêu" in msg_lower or "chi bao nhiêu" in msg_lower or "tiêu bao nhiêu" in msg_lower:
+            return IntentClassification(intent=IntentTaxonomy.SPENDING_STATISTICS.value, confidence=0.8)
         if "số dư" in msg_lower or "tiền" in msg_lower or "còn bao nhiêu" in msg_lower:
             return IntentClassification(intent=IntentTaxonomy.BALANCE_INQUIRY.value, confidence=0.8)
         if "lịch sử" in msg_lower or "sao kê" in msg_lower:

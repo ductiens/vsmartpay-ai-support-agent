@@ -48,3 +48,32 @@ class TransactionsRepository:
             {"transaction_id": transaction_id},
             {"$set": {"status": new_status, "updated_at": updated_at}}
         )
+
+    async def get_spending_statistics(self, user_id: str, months: int, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        from datetime import datetime, timezone
+        from dateutil.relativedelta import relativedelta
+        
+        utc_now = datetime.now(timezone.utc)
+        start_date = utc_now - relativedelta(months=months)
+
+        match_stage = {
+            "user_id": user_id,
+            "status": "SUCCESS",
+            "type": {"$in": ["WITHDRAWAL", "TRANSFER"]},
+            "created_at": {"$gte": start_date}
+        }
+        
+        if category:
+            match_stage["category"] = category
+
+        pipeline = [
+            {"$match": match_stage},
+            {"$group": {
+                "_id": "$category",
+                "total_spent": {"$sum": "$amount"}
+            }}
+        ]
+        
+        cursor = self.collection.aggregate(pipeline)
+        return await cursor.to_list(length=None)
+

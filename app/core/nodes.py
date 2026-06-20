@@ -117,6 +117,49 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
             "result": fee_data
         })
         
+    # 5. SPENDING_STATISTICS → extract months & category, call get_spending_statistics_tool
+    elif intent == "SPENDING_STATISTICS":
+        msg_lower = user_message.lower()
+        
+        # Extract timeframe
+        months = 1
+        if "năm" in msg_lower:
+            months = 12
+        else:
+            month_match = re.search(r"(\d+)\s*tháng", msg_lower)
+            if month_match:
+                months = int(month_match.group(1))
+            else:
+                if "tuần" in msg_lower:
+                    months = 1
+        if months > 12:
+            months = 12
+
+        # Extract category mapping based on typical Vietnamese terms
+        known_categories = {
+            "ăn uống": "Ăn uống", "ăn": "Ăn uống", "ăn trưa": "Ăn uống", "ăn sáng": "Ăn uống", "ăn tối": "Ăn uống", "nhà hàng": "Ăn uống", "cà phê": "Ăn uống", "cafe": "Ăn uống",
+            "di chuyển": "Di chuyển", "đi lại": "Di chuyển", "grab": "Di chuyển", "taxi": "Di chuyển",
+            "xăng": "Xăng xe", "xăng xe": "Xăng xe", "đổ xăng": "Xăng xe",
+            "mua sắm": "Mua sắm", "shopee": "Mua sắm", "quần áo": "Mua sắm", "siêu thị": "Mua sắm",
+            "giải trí": "Giải trí", "xem phim": "Giải trí", "chơi game": "Giải trí",
+            "hóa đơn": "Thanh toán hóa đơn", "tiền điện": "Thanh toán hóa đơn", "tiền nước": "Thanh toán hóa đơn", "tiền mạng": "Thanh toán hóa đơn"
+        }
+        
+        detected_category = None
+        for key, val in known_categories.items():
+            if re.search(r"\b" + re.escape(key) + r"\b", msg_lower):
+                detected_category = val
+                break
+                
+        from app.modules.tools.financial_tools import get_spending_statistics_tool
+        stats_data = await get_spending_statistics_tool(user_id, months, detected_category)
+        
+        tool_calls.append({
+            "tool_name": "get_spending_statistics",
+            "arguments": {"user_id": user_id, "months": months, "category": detected_category},
+            "result": stats_data
+        })
+
     nodes = list(state.get("nodes_executed", []))
     nodes.append("tool_router")
     return {

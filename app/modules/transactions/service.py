@@ -1,4 +1,5 @@
 import logging
+from typing import Optional, Dict, Any, List
 from app.common.utils import generate_id, now_utc
 from app.common.exceptions import AppException, BadRequestException, DuplicateRequestException, InsufficientBalanceException, NotFoundException, ForbiddenException
 from app.modules.transactions.repository import TransactionsRepository
@@ -172,3 +173,9 @@ class TransactionsService:
             limit=limit,
             skip=skip,
         )
+
+    async def get_spending_statistics(self, user_id: str, months: int = 1, category: Optional[str] = None) -> List[Dict[str, Any]]:
+        if months > 12:
+            months = 12
+        return await self.repo.get_spending_statistics(user_id, months, category)
+

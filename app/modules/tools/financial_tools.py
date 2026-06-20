@@ -135,3 +135,38 @@ async def get_user_kyc_status(user_id: str) -> str:
         logger.error(f"get_user_kyc_status via FinanceService failed: {e}")
         return "ERROR: Hệ thống đang bận, vui lòng thử lại sau"
 
+
+async def get_spending_statistics_tool(user_id: str, months: int = 1, category: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    get_spending_statistics_tool(user_id, months, category) - Query via TransactionsService.
+    Returns error if DB is not available.
+    """
+    try:
+        from app.modules.transactions.service import TransactionsService
+        transactions_service = TransactionsService()
+        
+        stats = await transactions_service.get_spending_statistics(user_id, months, category)
+        
+        result: Dict[str, Any] = {
+            "timeframe": f"{months} tháng",
+            "category_requested": category or "all",
+            "spending_by_category": []
+        }
+        
+        total_all_categories = 0
+        for item in stats:
+            cat_name = item.get("_id") or "Khác"
+            total = item.get("total_spent", 0)
+            total_all_categories += total
+            result["spending_by_category"].append({
+                "category": cat_name,
+                "total_spent": total
+            })
+            
+        result["total_overall"] = total_all_categories
+        return result
+    except Exception as e:
+        logger.error(f"get_spending_statistics_tool failed: {e}")
+        return {"error": "Hệ thống đang bận, vui lòng thử lại sau"}
+
+
