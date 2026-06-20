@@ -73,7 +73,9 @@ async def test_chat_endpoint_escalation_fraud(mock_chat_create, mock_get_embeddi
 
 
 @pytest.mark.asyncio
-async def test_tools_balance_endpoint(client):
+@patch("app.modules.tools.financial_tools.check_balance")
+async def test_tools_balance_endpoint(mock_check_balance, client):
+    mock_check_balance.return_value = {"user_id": "usr_001", "balance": 2500000, "currency": "VND"}
     response = await client.get("/tools/balance/usr_001")
     assert response.status_code == 200
     data = response.json().get("data", response.json())
@@ -83,7 +85,9 @@ async def test_tools_balance_endpoint(client):
 
 
 @pytest.mark.asyncio
-async def test_tools_transactions_endpoint(client):
+@patch("app.modules.tools.financial_tools.get_transaction_status")
+async def test_tools_transactions_endpoint(mock_get_tx_status, client):
+    mock_get_tx_status.return_value = {"transaction_id": "tx_001", "amount": 100000, "status": "SUCCESS"}
     response = await client.get("/tools/transactions/tx_001")
     assert response.status_code == 200
     data = response.json().get("data", response.json())
@@ -103,9 +107,9 @@ async def test_tools_fees_endpoint(client):
 
 
 @pytest.mark.asyncio
-@patch("app.modules.tools.financial_tools.MockWalletClient.get_transaction_by_id")
-async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
-    mock_get_tx_by_id.return_value = None
+@patch("app.modules.tools.financial_tools.get_transaction_status")
+async def test_tools_transaction_not_found(mock_get_tx_status, client):
+    mock_get_tx_status.return_value = None
     response = await client.get("/tools/transactions/non_existent_tx_id")
     assert response.status_code == 404
     data = response.json().get("data", response.json())
@@ -114,9 +118,9 @@ async def test_tools_transaction_not_found(mock_get_tx_by_id, client):
 
 
 @pytest.mark.asyncio
-@patch("app.modules.tools.financial_tools.MockWalletClient.get_wallet_by_user_id")
-async def test_tools_balance_not_found(mock_get_wallet, client):
-    mock_get_wallet.return_value = None
+@patch("app.modules.tools.financial_tools.check_balance")
+async def test_tools_balance_not_found(mock_check_balance, client):
+    mock_check_balance.return_value = None
     response = await client.get("/tools/balance/non_existent_user_id")
     assert response.status_code == 404
     data = response.json().get("data", response.json())

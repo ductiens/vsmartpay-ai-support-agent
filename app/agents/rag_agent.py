@@ -142,8 +142,9 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             draft_answer = "Xin lỗi, hiện tại tôi chưa tìm thấy thông tin tương ứng trong tài liệu hỗ trợ. Tôi có thể đề xuất kết nối bạn đến nhân viên hỗ trợ trực tiếp (CSKH) để xử lý tình huống này."
     else:
         try:
-            from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=api_key)
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import SystemMessage, HumanMessage
+            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.2, streaming=True)
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn ảo hỗ trợ khách hàng xuất sắc của ví điện tử VSmartPay.\n"
@@ -170,33 +171,42 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
             
             queue = state.get("streaming_queue")
             draft_answer = ""
+            messages = [
+                SystemMessage(content=system_instruction),
+                HumanMessage(content=user_prompt)
+            ]
+            
             if queue:
-                response_stream = await client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=0.2,
-                    stream=True
-                )
-                async for chunk in response_stream:
-                    token = chunk.choices[0].delta.content
-                    if token:
+                # Still support the legacy queue if needed
+                async for chunk in client.astream(messages):
+                    token = chunk.content
+                    if isinstance(token, str) and token:
                         draft_answer += token
                         await queue.put({"type": "token", "content": token})
+                    elif isinstance(token, list):
+                        for item in token:
+                            if isinstance(item, str):
+                                draft_answer += item
+                                await queue.put({"type": "token", "content": item})
+                            elif isinstance(item, dict) and "text" in item:
+                                text_item = item["text"]
+                                if isinstance(text_item, str):
+                                    draft_answer += text_item
+                                    await queue.put({"type": "token", "content": text_item})
                 streamed_to_queue = True
             else:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    temperature=0.2,
-                    stream=False
-                )
-                draft_answer = response.choices[0].message.content or ""
+                response = await client.ainvoke(messages)
+                content = response.content
+                if isinstance(content, str):
+                    draft_answer = content
+                elif isinstance(content, list):
+                    draft_answer = "".join(
+                        str(item) if isinstance(item, str) 
+                        else str(item.get("text", "")) if isinstance(item, dict) 
+                        else "" for item in content
+                    )
+                else:
+                    draft_answer = str(content) if content else ""
         except Exception as e:
             print(f"DEBUG LLM ERROR: {type(e).__name__} - {str(e)}")
             if intent == "BALANCE_INQUIRY" and balance_data:

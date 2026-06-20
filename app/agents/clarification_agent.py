@@ -21,8 +21,9 @@ async def run_clarification_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         )
     else:
         try:
-            from openai import AsyncOpenAI
-            client = AsyncOpenAI(api_key=api_key)
+            from langchain_openai import ChatOpenAI
+            from langchain_core.messages import SystemMessage, HumanMessage
+            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.5, streaming=True)
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn khách hàng ảo của ví điện tử VSmartPay.\n"
@@ -38,15 +39,23 @@ async def run_clarification_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 f"Hãy phản hồi lịch sự yêu cầu làm rõ:"
             )
             
-            response = await client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.5
-            )
-            final_answer = response.choices[0].message.content or ""
+            messages = [
+                SystemMessage(content=system_instruction),
+                HumanMessage(content=user_prompt)
+            ]
+            
+            response = await client.ainvoke(messages)
+            content = response.content
+            if isinstance(content, str):
+                final_answer = content
+            elif isinstance(content, list):
+                final_answer = "".join(
+                    str(item) if isinstance(item, str) 
+                    else str(item.get("text", "")) if isinstance(item, dict) 
+                    else "" for item in content
+                )
+            else:
+                final_answer = str(content) if content else ""
         except Exception:
             final_answer = (
                 "Chào bạn, hiện tại tôi chưa tìm thấy thông tin tương ứng trong tài liệu hỗ trợ. "

@@ -312,8 +312,6 @@ async def execute_graph_stream(request: ChatRequest):
     masked_message = mask_pii_in_message(request.message)
     hashed_user_id = hash_user_id(request.user_id)
     
-    queue = asyncio.Queue()
-    
     initial_state = {
         "session_id": request.session_id,
         "user_id": request.user_id,
@@ -337,8 +335,7 @@ async def execute_graph_stream(request: ChatRequest):
         "kb_type": "",
         "agent_scope": "",
         "retrieval_filter": {},
-        "nodes_executed": [],
-        "streaming_queue": queue
+        "nodes_executed": []
     }
     
     run_config = {
@@ -350,101 +347,127 @@ async def execute_graph_stream(request: ChatRequest):
         }
     }
     
-    async def run_graph():
-        try:
-            final_state = await graph.ainvoke(initial_state, config=run_config)
+    try:
+        final_state = None
+        async for event in graph.astream_events(initial_state, config=run_config, version="v2"):
+            kind = event["event"]
+            if kind == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if hasattr(chunk, "content") and chunk.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content}, ensure_ascii=False)}\n\n"
+            elif kind == "on_chain_end" and event["name"] == "VSmartPay_Chat_Flow_Stream":
+                final_state = event["data"]["output"]
+                
+        if not final_state:
+            final_state = initial_state
             
-            answer = final_state.get("final_answer", "")
-            intent = final_state.get("intent", "FAQ_GENERAL")
-            confidence = final_state.get("confidence", 0.5)
-            sources_data = final_state.get("sources", [])
-            tool_calls = final_state.get("tool_calls", [])
-            nodes_executed = final_state.get("nodes_executed", [])
+        _ans = final_state.get("final_answer")
+        answer = str(_ans) if _ans is not None else ""
+        
+        _int = final_state.get("intent")
+        intent = str(_int) if _int is not None else "FAQ_GENERAL"
+        
+        _conf = final_state.get("confidence")
+        confidence = float(_conf) if isinstance(_conf, (int, float)) else 0.5
+        
+        sources_data = final_state.get("sources", [])
+        if not isinstance(sources_data, list):
+            sources_data = []
             
-            sources = [
-                ChatSource(
-                    doc_id=s.get("doc_id", "unknown"),
-                    chunk_id=s.get("chunk_id", ""),
-                    title=s.get("title", ""),
-                    score=s.get("score", 0.0)
-                ) for s in sources_data
-            ]
+        tool_calls = final_state.get("tool_calls", [])
+        if not isinstance(tool_calls, list):
+            tool_calls = []
             
-            escalation_required = final_state.get("escalation_required", False)
-            escalation_reason = final_state.get("escalation_reason", None)
-            meta = final_state.get("metadata", {})
-            esc_meta = meta.get("escalation", {})
-            priority = esc_meta.get("priority", "MEDIUM") if escalation_required else None
+        nodes_executed = final_state.get("nodes_executed", [])
+        if not isinstance(nodes_executed, list):
+            nodes_executed = []
+        
+        sources = [
+            ChatSource(
+                doc_id=s.get("doc_id", "unknown") if isinstance(s, dict) else "unknown",
+                chunk_id=s.get("chunk_id", "") if isinstance(s, dict) else "",
+                title=s.get("title", "") if isinstance(s, dict) else "",
+                score=float(s.get("score", 0.0)) if isinstance(s, dict) else 0.0
+            ) for s in sources_data
+        ]
+        
+        escalation_required = bool(final_state.get("escalation_required", False))
+        escalation_reason = final_state.get("escalation_reason", None)
+        escalation_reason_str = str(escalation_reason) if escalation_reason else None
+        
+        meta = final_state.get("metadata", {})
+        if not isinstance(meta, dict):
+            meta = {}
             
-            db_sources = [
-                {
-                    "doc_id": s.doc_id,
-                    "chunk_id": s.chunk_id,
-                    "title": s.title,
-                    "score": s.score
-                } for s in sources
-            ]
-            await repository.log_message(
-                session_id=str(request.session_id),
-                role="assistant",
-                content=answer,
-                intent=intent,
-                sources=db_sources
-            )
+        esc_meta = meta.get("escalation", {})
+        if not isinstance(esc_meta, dict):
+            esc_meta = {}
+            
+        priority = esc_meta.get("priority", "MEDIUM") if escalation_required else None
+        
+        db_sources = [
+            {
+                "doc_id": s.doc_id,
+                "chunk_id": s.chunk_id,
+                "title": s.title,
+                "score": s.score
+            } for s in sources
+        ]
+        await repository.log_message(
+            session_id=str(request.session_id),
+            role="assistant",
+            content=answer,
+            intent=intent,
+            sources=db_sources
+        )
 
-            if escalation_required:
-                await repository.update_session_status(str(request.session_id), "WAITING_HUMAN")
+        if escalation_required:
+            await repository.update_session_status(str(request.session_id), "WAITING_HUMAN")
 
-            latency_ms = (time.time() - start_time) * 1000
-            retrieved_chunks = final_state.get("retrieved_chunks", [])
-            trace_chunks = [
-                {
-                    "doc_id": getattr(c, "metadata", {}).get("source", "unknown") if hasattr(c, "metadata") else c.get("metadata", {}).get("source", "unknown"),
-                    "chunk_id": getattr(c, "id", "") if hasattr(c, "id") else c.get("id", ""),
-                    "title": getattr(c, "metadata", {}).get("category", "Tài liệu VSmartPay") if hasattr(c, "metadata") else c.get("metadata", {}).get("category", "Tài liệu VSmartPay"),
-                    "score": float(getattr(c, "score", 0.0)) if hasattr(c, "score") else float(c.get("score", 0.0))
-                }
-                for c in retrieved_chunks
-            ]
-            trace_doc = {
-                "request_id": request_id,
-                "session_id": request.session_id,
-                "user_id": request.user_id,
-                "user_message": request.message,
-                "intent": intent,
-                "confidence": confidence,
-                "tool_calls": tool_calls,
-                "retrieved_chunks": trace_chunks,
-                "nodes_executed": nodes_executed,
-                "latency_ms": latency_ms,
-                "timestamp": now_utc()
+        latency_ms = (time.time() - start_time) * 1000
+        retrieved_chunks = final_state.get("retrieved_chunks", [])
+        if not isinstance(retrieved_chunks, list):
+            retrieved_chunks = []
+            
+        trace_chunks = [
+            {
+                "doc_id": getattr(c, "metadata", {}).get("source", "unknown") if hasattr(c, "metadata") else (c.get("metadata", {}).get("source", "unknown") if isinstance(c, dict) else "unknown"),
+                "chunk_id": getattr(c, "id", "") if hasattr(c, "id") else (c.get("id", "") if isinstance(c, dict) else ""),
+                "title": getattr(c, "metadata", {}).get("category", "Tài liệu VSmartPay") if hasattr(c, "metadata") else (c.get("metadata", {}).get("category", "Tài liệu VSmartPay") if isinstance(c, dict) else "Tài liệu VSmartPay"),
+                "score": float(getattr(c, "score", 0.0)) if hasattr(c, "score") else float(c.get("score", 0.0) if isinstance(c, dict) else 0.0)
             }
-            await repository.log_agent_trace(trace_doc)
-            
-            chat_response = ChatResponse(
-                session_id=str(request.session_id),
-                answer=answer,
-                intent=intent,
-                confidence=confidence,
-                sources=sources,
-                tool_calls=tool_calls,
-                escalation=EscalationDetail(
-                    required=escalation_required,
-                    reason=escalation_reason if escalation_reason else None,
-                    priority=priority
-                )
+            for c in retrieved_chunks
+        ]
+        trace_doc = {
+            "request_id": request_id,
+            "session_id": request.session_id,
+            "user_id": request.user_id,
+            "user_message": request.message,
+            "intent": intent,
+            "confidence": confidence,
+            "tool_calls": tool_calls,
+            "retrieved_chunks": trace_chunks,
+            "nodes_executed": nodes_executed,
+            "latency_ms": latency_ms,
+            "timestamp": now_utc()
+        }
+        await repository.log_agent_trace(trace_doc)
+        
+        chat_response = ChatResponse(
+            session_id=str(request.session_id),
+            answer=answer,
+            intent=intent,
+            confidence=confidence,
+            sources=sources,
+            tool_calls=tool_calls,
+            escalation=EscalationDetail(
+                required=escalation_required,
+                reason=escalation_reason_str,
+                priority=str(priority) if priority else None
             )
-            await queue.put({"type": "metadata", "data": chat_response.model_dump()})
-        except Exception as e:
-            logger.error(f"Error in execute_graph_stream: {str(e)}")
-            await queue.put({"type": "error", "error": str(e)})
-        finally:
-            await queue.put(None)
-
-    asyncio.create_task(run_graph())
-
-    while True:
-        item = await queue.get()
-        if item is None:
-            break
-        yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        )
+        yield f"data: {json.dumps({'type': 'metadata', 'data': chat_response.model_dump()}, ensure_ascii=False)}\n\n"
+        
+    except Exception as e:
+        logger.error(f"Error in execute_graph_stream: {str(e)}")
+        yield f"data: {json.dumps({'type': 'error', 'error': str(e)}, ensure_ascii=False)}\n\n"

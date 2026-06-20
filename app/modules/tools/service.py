@@ -1,17 +1,16 @@
 from typing import Optional, Any
-from app.modules.tools.financial_tools import MockWalletClient
 from app.modules.tools.schema import BalanceResponse, TransactionDetail, FeesResponse
 
 class ToolService:
     def __init__(self):
-        self.wallet_client = MockWalletClient()
+        pass
 
     async def get_balance(self, user_id: str) -> BalanceResponse:
         from app.modules.tools.financial_tools import check_balance
         data = await check_balance(user_id)
-        if data is None:
+        if data is None or "error" in data:
             from app.common.exceptions import NotFoundException
-            raise NotFoundException(f"Wallet for user {user_id} not found")
+            raise NotFoundException(f"Wallet for user {user_id} not found or error occurred")
         return BalanceResponse(
             user_id=data["user_id"],
             balance=data["balance"],
@@ -21,8 +20,6 @@ class ToolService:
     async def get_transaction(self, transaction_id: str, user_id: Optional[str] = None) -> TransactionDetail:
         from app.modules.tools.financial_tools import get_transaction_status
         data = await get_transaction_status(transaction_id, user_id)
-        if data is None:
-            data = self.wallet_client.get_transaction_by_id(transaction_id)
             
         if data is None or "error" in data:
             from app.common.exceptions import NotFoundException
