@@ -16,7 +16,8 @@ from app.core.nodes import (
     confidence_agent_node,
     escalation_agent_node,
     clarification_agent_node,
-    final_answer_node
+    final_answer_node,
+    query_decomposition_node
 )
 from app.modules.chat.schema import ChatRequest, ChatResponse, ChatSource, EscalationDetail
 from app.modules.chat.repository import ChatRepository
@@ -72,6 +73,17 @@ def route_after_intent(state: SupportAgentState) -> Literal["escalation", "tool_
         
     return "tool_router"
 
+def route_after_tool_router(state: SupportAgentState) -> Literal["query_decomposition", "rag_agent"]:
+    """
+    If the intent requires RAG, route to query_decomposition to parse complex queries.
+    Otherwise, route directly to rag_agent (which will just use tool results or bot identity).
+    """
+    intent = state.get("intent", "FAQ_GENERAL")
+    tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
+    if intent in tool_only_intents or intent == "BOT_IDENTITY" or intent == "FEE_INQUIRY" or intent == "SPENDING_STATISTICS":
+        return "rag_agent"
+    return "query_decomposition"
+
 # 2. Build the workflow StateGraph
 workflow = StateGraph(SupportAgentState)
 
@@ -85,6 +97,7 @@ workflow.add_node("confidence_agent", confidence_agent_node)
 workflow.add_node("escalation_agent", escalation_agent_node)
 workflow.add_node("clarification_agent", clarification_agent_node)
 workflow.add_node("final_answer_node", final_answer_node)
+workflow.add_node("query_decomposition_node", query_decomposition_node)
 
 # Connect the nodes in linear flow
 workflow.set_entry_point("injection_guard")
@@ -99,7 +112,15 @@ workflow.add_conditional_edges(
     }
 )
 
-workflow.add_edge("tool_router", "rag_agent")
+workflow.add_conditional_edges(
+    "tool_router",
+    route_after_tool_router,
+    {
+        "query_decomposition": "query_decomposition_node",
+        "rag_agent": "rag_agent"
+    }
+)
+workflow.add_edge("query_decomposition_node", "rag_agent")
 workflow.add_edge("rag_agent", "grounding_guard")
 workflow.add_edge("grounding_guard", "confidence_agent")
 

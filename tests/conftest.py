@@ -84,6 +84,66 @@ async def seed_knowledge_chunks(test_db):
 
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
+async def seed_mock_finance_data(test_db):
+    """
+    Autouse fixture that seeds mock finance data (user, wallet, transactions)
+    so financial tools can return valid data in tests.
+    """
+    from app.common.constants import WalletStatus
+    from app.common.utils import now_utc
+    utc_now = now_utc()
+    
+    # 1. Seed user
+    await test_db["users"].insert_one({
+        "user_id": "user_001",
+        "kyc_status": "VERIFIED",
+        "full_name": "Mock User",
+        "phone": "0900000000",
+        "email": "mock@example.com",
+        "created_at": utc_now
+    })
+    
+    # 2. Seed wallet
+    await test_db["wallets"].insert_one({
+        "wallet_id": "wlt_mock_001",
+        "user_id": "user_001",
+        "balance": 2500000,
+        "currency": "VND",
+        "status": WalletStatus.ACTIVE.value,
+        "created_at": utc_now,
+        "updated_at": utc_now
+    })
+    
+    # 3. Seed transactions
+    await test_db["transactions"].insert_many([
+        {
+            "transaction_id": "txn_001",
+            "user_id": "user_001",
+            "amount": 100000,
+            "type": "TRANSFER",
+            "status": "SUCCESS",
+            "created_at": utc_now
+        },
+        {
+            "transaction_id": "txn_002",
+            "user_id": "user_001",
+            "amount": 50000,
+            "type": "TRANSFER",
+            "status": "PENDING",
+            "created_at": utc_now
+        },
+        {
+            "transaction_id": "txn_003",
+            "user_id": "user_001",
+            "amount": 200000,
+            "type": "TRANSFER",
+            "status": "FAILED",
+            "created_at": utc_now
+        }
+    ])
+
+
+@pytest_asyncio.fixture(scope="function", autouse=True)
 async def setup_test_db(test_db):
     """
     Autouse fixture that sets db_manager.db to the isolated test database 

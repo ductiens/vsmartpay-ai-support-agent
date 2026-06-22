@@ -17,18 +17,49 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     agent_scope = state.get("agent_scope")
     user_id = state.get("user_id", "")
     
+    # Cập nhật: Lấy danh sách sub_queries từ state. Tương thích ngược: nếu rỗng, dùng user_message.
+    sub_queries = state.get("sub_queries")
+    if not sub_queries:
+        sub_queries = [user_message]
+    
     # 1. Retrieve relevant chunks using RAGRetriever with scoping filters
     tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
     if intent in tool_only_intents or intent == "BOT_IDENTITY":
         retrieved_chunks = []
     else:
         retriever = RAGRetriever()
-        retrieved_chunks = await retriever.retrieve(  # type: ignore
-            query=user_message,
-            top_k=settings.TOP_K,
-            agent_scope=agent_scope,
-            kb_type=kb_type
-        )
+        
+        import asyncio
+        async def fetch_for_query(q):
+            return await retriever.retrieve(
+                query=q,
+                top_k=settings.TOP_K,
+                agent_scope=agent_scope,
+                kb_type=kb_type
+            )
+                
+        # Thực thi tìm kiếm RAG song song
+        results_nested = await asyncio.gather(*[fetch_for_query(q) for q in sub_queries])
+        
+        # Gom kết quả, deduplicate theo chunk_id (chỉ giữ chunk điểm cao nhất)
+        chunk_map = {}
+        for res_list in results_nested:
+            for c in res_list:
+                c_id = getattr(c, "id", None) if hasattr(c, "id") else (c.get("id") if isinstance(c, dict) else id(c))
+                score = getattr(c, "score", 0.0) if hasattr(c, "score") else (c.get("score", 0.0) if isinstance(c, dict) else 0.0)
+                
+                if c_id not in chunk_map:
+                    chunk_map[c_id] = c
+                else:
+                    existing = chunk_map[c_id]
+                    existing_score = getattr(existing, "score", 0.0) if hasattr(existing, "score") else (existing.get("score", 0.0) if isinstance(existing, dict) else 0.0)
+                    if score > existing_score:
+                        chunk_map[c_id] = c
+                        
+        # Sắp xếp theo score giảm dần và lấy Top-K chunk tốt nhất
+        retrieved_chunks_all = list(chunk_map.values())
+        retrieved_chunks_all.sort(key=lambda x: getattr(x, "score", 0.0) if hasattr(x, "score") else (x.get("score", 0.0) if isinstance(x, dict) else 0.0), reverse=True)
+        retrieved_chunks = retrieved_chunks_all[:settings.TOP_K]
     
     # Calculate retrieval score, doc_ids, sources
     retrieval_score = 0.0

@@ -10,6 +10,7 @@ class SupportAgentState(TypedDict, total=False):
     user_message: str
     normalized_message: str
     intent: str
+    sub_queries: List[str]
     retrieved_chunks: List[Any]
     retrieval_score: float
     tool_calls: List[Dict[str, Any]]

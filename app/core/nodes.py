@@ -8,7 +8,7 @@ from app.agents.grounding_guard import run_grounding_guard
 from app.agents.confidence_agent import run_confidence_agent
 from app.agents.escalation_agent import run_escalation_agent
 from app.agents.clarification_agent import run_clarification_agent
-
+from app.agents.query_decomposition_agent import run_query_decomposition_agent
 # Node Wrappers
 async def injection_guard_node(state: SupportAgentState) -> Dict[str, Any]:
     res = check_injection(state)
@@ -166,6 +166,15 @@ async def tool_router_node(state: SupportAgentState) -> Dict[str, Any]:
         "tool_calls": tool_calls,
         "nodes_executed": nodes
     }
+
+async def query_decomposition_node(state: SupportAgentState) -> Dict[str, Any]:
+    if state.get("injection_detected"):
+        return {}
+    res = await run_query_decomposition_agent(cast(Dict[str, Any], state))
+    nodes = list(state.get("nodes_executed", []))
+    nodes.append("query_decomposition_node")
+    res["nodes_executed"] = nodes
+    return res
 
 async def rag_agent_node(state: SupportAgentState) -> Dict[str, Any]:
     if state.get("injection_detected"):
