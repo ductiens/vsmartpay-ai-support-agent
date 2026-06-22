@@ -30,14 +30,22 @@ async def upload_file_to_cloudinary(file_bytes: bytes, file_name: str) -> str | 
         # Determine resource type based on extension
         # Cloudinary uses 'raw' for non-image/video files like docs, pdfs, etc., unless specified otherwise.
         # But 'auto' tells Cloudinary to automatically detect.
+        # Keep extension for raw files so Cloudinary serves with correct Content-Type
+        ext = ""
+        if '.' in file_name:
+            ext = "." + file_name.split('.')[-1]
+        base_name = file_name.split('.')[0]
+        
         result = cloudinary.uploader.upload(
             file_bytes,
-            resource_type="auto",
-            public_id=file_name.split('.')[0] + "_" + str(hash(file_bytes))[:8],
+            resource_type="raw",
+            public_id=base_name + "_" + str(hash(file_bytes))[:8] + ext,
             use_filename=True,
             unique_filename=True
         )
         return result.get("secure_url")
     except Exception as e:
         logger.error(f"Failed to upload file to Cloudinary: {e}")
+        with open("cloudinary_error.log", "a") as f:
+            f.write(f"Failed to upload {file_name}: {str(e)}\n")
         return None

@@ -155,6 +155,67 @@ class DocumentService:
         await doc_col.delete_one({"doc_id": doc_id})
         return {"success": True, "message": f"Tài liệu {doc_id} và toàn bộ chunk đã được xóa thành công."}
 
+    async def stream_document(self, doc_id: str):
+        """Proxy stream file content from Cloudinary to bypass PDF delivery restrictions"""
+        from app.common.exceptions import NotFoundException, InternalServerException
+        import cloudinary.utils
+        import urllib.request
+        import zipfile
+        import io
+        import asyncio
+        from fastapi.responses import Response
+        
+        doc_col = self.documents_collection
+        if doc_col is None:
+            raise InternalServerException(message="Database not configured.")
+            
+        doc = await doc_col.find_one({"doc_id": doc_id})
+        if not doc or not doc.get("cloudinary_url"):
+            raise NotFoundException(message="Document not found or URL missing.")
+            
+        cloudinary_url = doc["cloudinary_url"]
+        file_name = doc["file_name"]
+        
+        # Extract public_id
+        parts = cloudinary_url.split('/upload/')
+        if len(parts) < 2:
+            raise InternalServerException(message="Invalid Cloudinary URL format.")
+            
+        path_after_upload = parts[1]
+        path_parts = path_after_upload.split('/')
+        if len(path_parts) > 1 and path_parts[0].startswith('v') and path_parts[0][1:].isdigit():
+            public_id = '/'.join(path_parts[1:])
+        else:
+            public_id = path_after_upload
+            
+        try:
+            archive_url = cloudinary.utils.download_archive_url(
+                public_ids=[public_id],
+                resource_type="raw",
+                target_format="zip"
+            )
+            
+            def _fetch_and_unzip(url: str) -> bytes:
+                req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+                res = urllib.request.urlopen(req)
+                zip_bytes = res.read()
+                with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+                    return z.read(z.namelist()[0])
+
+            file_bytes = await asyncio.to_thread(_fetch_and_unzip, archive_url)
+            
+            mime_type = "application/octet-stream"
+            ext = file_name.split('.')[-1].lower() if '.' in file_name else ""
+            if ext == "pdf":
+                mime_type = "application/pdf"
+            elif ext in ["txt", "md"]:
+                mime_type = "text/plain"
+                
+            return Response(content=file_bytes, media_type=mime_type)
+            
+        except Exception as e:
+            raise InternalServerException(message=f"Failed to proxy stream file: {str(e)}")
+
     async def get_document_chunks(self, doc_id: str):
         """Lấy danh sách tất cả chunk thuộc một tài liệu cụ thể."""
         from app.modules.documents.schema import DocumentChunkItem

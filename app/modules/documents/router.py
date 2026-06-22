@@ -39,6 +39,12 @@ async def get_document_status(doc_id: str):
     return success_response(data=await doc_service.get_document_status(doc_id))
 
 
+@router.get("/{doc_id}/view")
+async def view_document(doc_id: str):
+    """Proxy stream file from Cloudinary to bypass PDF restrictions"""
+    return await doc_service.stream_document(doc_id)
+
+
 @router.get("/{doc_id}/chunks", response_model=BaseSuccessResponse[List[DocumentChunkItem]])
 async def get_document_chunks(doc_id: str):
     """Xem danh sách tất cả chunk (đoạn văn bản đã chia nhỏ) của một tài liệu cụ thể."""
