@@ -175,7 +175,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         try:
             from langchain_openai import ChatOpenAI
             from langchain_core.messages import SystemMessage, HumanMessage
-            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.2, streaming=True)
+            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.2)
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn ảo hỗ trợ khách hàng xuất sắc của ví điện tử VSmartPay.\n"

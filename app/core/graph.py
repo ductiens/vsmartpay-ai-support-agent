@@ -369,22 +369,21 @@ async def execute_graph_stream(request: ChatRequest):
     }
     
     try:
-        final_state = None
-        async for event in graph.astream_events(initial_state, config=run_config, version="v2"):
-            kind = event["event"]
-            if kind == "on_chat_model_stream":
-                chunk = event["data"]["chunk"]
-                if hasattr(chunk, "content") and chunk.content:
-                    yield f"data: {json.dumps({'type': 'token', 'content': chunk.content}, ensure_ascii=False)}\n\n"
-            elif kind == "on_chain_end" and event["name"] == "VSmartPay_Chat_Flow_Stream":
-                final_state = event["data"]["output"]
-                
-        if not final_state:
-            final_state = initial_state
+        final_state = await graph.ainvoke(initial_state, config=run_config)
             
         _ans = final_state.get("final_answer")
         answer = str(_ans) if _ans is not None else ""
         
+        # Simulated stream to avoid UI jumping
+        words = answer.split(" ")
+        for i, word in enumerate(words):
+            content = word + (" " if i < len(words) - 1 else "")
+            if content:
+                yield f"data: {json.dumps({'type': 'token', 'content': content}, ensure_ascii=False)}\n\n"
+            await asyncio.sleep(0.02)
+
+
+
         _int = final_state.get("intent")
         intent = str(_int) if _int is not None else "FAQ_GENERAL"
         

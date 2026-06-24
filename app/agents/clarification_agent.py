@@ -23,7 +23,7 @@ async def run_clarification_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         try:
             from langchain_openai import ChatOpenAI
             from langchain_core.messages import SystemMessage, HumanMessage
-            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.5, streaming=True)
+            client = ChatOpenAI(model=model, api_key=api_key, temperature=0.5)
             
             system_instruction = (
                 "Bạn là nhân viên tư vấn khách hàng ảo của ví điện tử VSmartPay.\n"

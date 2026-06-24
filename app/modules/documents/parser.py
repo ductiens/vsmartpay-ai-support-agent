@@ -175,8 +175,6 @@ class DocumentParser:
                 return "\n".join(markdown_lines)
 
             text_lines = []
-            current_heading = None
-            
             for item in iter_block_items(doc):
                 if isinstance(item, docx.text.paragraph.Paragraph):
                     style_name = item.style.name.lower() if (item.style and item.style.name) else ""
@@ -185,13 +183,10 @@ class DocumentParser:
                         continue
                         
                     if style_name and "heading 1" in style_name:
-                        current_heading = text
                         text_lines.append(f"# {text}")
                     elif "heading 2" in style_name:
-                        current_heading = text
                         text_lines.append(f"## {text}")
                     elif "heading 3" in style_name:
-                        current_heading = text
                         text_lines.append(f"### {text}")
                     else:
                         text_lines.append(text)
@@ -206,7 +201,7 @@ class DocumentParser:
             extracted_pages.append({
                 "text": cleaned_combined_text,
                 "page": None,
-                "heading": current_heading
+                "heading": None
             })
             
         else:
