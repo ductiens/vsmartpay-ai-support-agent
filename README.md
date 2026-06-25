@@ -9,6 +9,16 @@
 
 ---
 
+## 🌐 Hệ sinh thái dự án (Project Ecosystem)
+
+Dự án backend này nằm trong hệ sinh thái giải pháp tổng thể của VSmartPay. Để có trải nghiệm và góc nhìn đầy đủ nhất về sản phẩm, bạn có thể tham khảo thêm các repository liên quan:
+
+- **[VSmartPay-CSKH-Web-Admin-Dashboard](https://github.com/ductiens/VSmartPay-CSKH-Web-Admin-Dashboard)**: Trang Dashboard quản trị dành cho nhân viên Chăm sóc khách hàng (CSKH). Cho phép nhân viên theo dõi các đoạn hội thoại, tiếp nhận các phiên chat rủi ro cao được AI tự động chuyển giao (Escalation) và giám sát dữ liệu ví điện tử.
+- **[fintech-support-app](https://github.com/ductiens/fintech-support-app)**: Ứng dụng Frontend phía người dùng (Client App) mô phỏng Ví điện tử VSmartPay. Đây là nơi khách hàng thao tác nạp, rút, chuyển tiền và tương tác nhắn tin trực tiếp với AI Chatbot tích hợp.
+
+---
+
+
 ## 🚀 Tính năng nổi bật (Features)
 
 ### 🧠 Core AI & Chatbot Capabilities
