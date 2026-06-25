@@ -4,6 +4,36 @@ import tiktoken
 
 from app.config import settings
 
+def flatten_markdown_tables(text: str) -> str:
+    """Chuyển đổi bảng markdown thành text phẳng để tránh chia rách bảng và giúp AI đọc dễ hơn."""
+    if "|" not in text:
+        return text
+        
+    lines = text.split('\n')
+    processed = []
+    in_table = False
+    headers = []
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith('|') and stripped.endswith('|'):
+            parts = [p.strip() for p in stripped.split('|')][1:-1]
+            if not in_table:
+                headers = parts
+                in_table = True
+            elif all(p.replace('-', '').strip() == '' for p in parts):
+                continue
+            else:
+                row_text = []
+                for i, val in enumerate(parts):
+                    header_name = headers[i] if i < len(headers) else f"Cột {i+1}"
+                    row_text.append(f"{header_name}: {val}")
+                processed.append("- " + ". ".join(row_text))
+        else:
+            in_table = False
+            processed.append(line)
+            
+    return "\n".join(processed).strip()
 
 class DocumentChunker:
     def __init__(self):
@@ -47,7 +77,8 @@ class DocumentChunker:
         chunk_index = 0
         
         for page_data in extracted_pages:
-            text = page_data["text"]
+            # Làm phẳng table trước khi cắt
+            text = flatten_markdown_tables(page_data["text"])
             page_num = page_data["page"]
             heading = page_data["heading"]
             

@@ -34,7 +34,7 @@ class IntentClassifier:
             return IntentClassification(intent=IntentTaxonomy.HUMAN_SUPPORT_REQUEST.value, confidence=0.95)
             
         # 2. Fees Inquiry
-        if any(w in msg_lower for w in ["phí chuyển", "phí rút", "biểu phí", "phí duy trì", "tốn phí", "thu phí"]):
+        if any(w in msg_lower for w in ["phí chuyển", "phí rút", "phí nạp", "biểu phí", "phí duy trì", "tốn phí", "thu phí", "phí bao nhiêu", "tính phí"]):
             return IntentClassification(intent=IntentTaxonomy.FEE_INQUIRY.value, confidence=0.95)
             
         # 3. Limits Inquiry
@@ -54,7 +54,7 @@ class IntentClassifier:
             return IntentClassification(intent=IntentTaxonomy.BALANCE_INQUIRY.value, confidence=0.95)
 
         # 5b. Spending Statistics
-        if any(w in msg_lower for w in ["chi tiêu", "chi bao nhiêu", "tiêu bao nhiêu", "thống kê chi", "tổng chi"]):
+        if any(w in msg_lower for w in ["chi tiêu", "chi bao nhiêu", "tiêu bao nhiêu", "thống kê chi", "tổng chi", "tiêu cho", "hết bao nhiêu", "đổ xăng", "đi taxi", "mua sắm", "tiền điện", "tiền nước"]):
             return IntentClassification(intent=IntentTaxonomy.SPENDING_STATISTICS.value, confidence=0.95)
 
         # 6. Fraud or Scam Report
@@ -97,8 +97,8 @@ class IntentClassifier:
                     "Nhiệm vụ của bạn là đọc tin nhắn của khách hàng và phân loại chính xác vào MỘT trong các nhóm ý định sau:\n"
                     f"{', '.join(intents_list)}\n\n"
                     "Các quy tắc đặc biệt:\n"
-                    "- Nếu khách hàng hỏi về tiền còn bao nhiêu hoặc kiểm tra số dư -> BALANCE_INQUIRY\n"
-                    "- Nếu khách hàng hỏi về thống kê chi tiêu, tổng số tiền đã tiêu, chi bao nhiêu tiền vào việc gì -> SPENDING_STATISTICS\n"
+                    "- Nếu khách hàng hỏi về tiền còn bao nhiêu hiện tại hoặc kiểm tra số dư tài khoản -> BALANCE_INQUIRY\n"
+                    "- Nếu khách hàng hỏi về thống kê chi tiêu, tổng số tiền đã tiêu, chi bao nhiêu tiền vào việc gì, hoặc hỏi số tiền cụ thể đã trả cho các dịch vụ (như tiền điện, tiền nước, tiền đổ xăng, đi taxi, mua sắm) trong 1 khoảng thời gian -> SPENDING_STATISTICS\n"
                     "- Nếu khách hàng hỏi về lịch sử giao dịch, tra cứu biến động số dư, xem sao kê -> TRANSACTION_HISTORY\n"
                     "- Nếu khách hàng hỏi han bot là ai, introduce, giới thiệu -> BOT_IDENTITY\n"
                     "- Nếu khách hàng chào hỏi xã giao thông thường -> FAQ_GENERAL\n"
@@ -135,7 +135,7 @@ class IntentClassifier:
         # Basic check for partial matches as a softer backup
         if "chi tiêu" in msg_lower or "chi bao nhiêu" in msg_lower or "tiêu bao nhiêu" in msg_lower:
             return IntentClassification(intent=IntentTaxonomy.SPENDING_STATISTICS.value, confidence=0.8)
-        if "số dư" in msg_lower or "tiền" in msg_lower or "còn bao nhiêu" in msg_lower:
+        if "số dư" in msg_lower or "còn bao nhiêu" in msg_lower:
             return IntentClassification(intent=IntentTaxonomy.BALANCE_INQUIRY.value, confidence=0.8)
         if "lịch sử" in msg_lower or "sao kê" in msg_lower:
             return IntentClassification(intent=IntentTaxonomy.TRANSACTION_HISTORY.value, confidence=0.8)

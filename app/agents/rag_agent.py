@@ -23,7 +23,7 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         sub_queries = [user_message]
     
     # 1. Retrieve relevant chunks using RAGRetriever with scoping filters
-    tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS"]
+    tool_only_intents = ["BALANCE_INQUIRY", "TRANSACTION_HISTORY", "TRANSACTION_STATUS", "SPENDING_STATISTICS"]
     if intent in tool_only_intents or intent == "BOT_IDENTITY":
         retrieved_chunks = []
     else:
@@ -33,9 +33,9 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         async def fetch_for_query(q):
             return await retriever.retrieve(
                 query=q,
-                top_k=settings.TOP_K,
-                agent_scope=agent_scope,
-                kb_type=kb_type
+                top_k=settings.TOP_K
+                # Bỏ agent_scope và kb_type để tìm kiếm toàn cục (Global Search)
+                # tránh việc Intent Agent gán nhãn sai khiến RAG không tìm ra tài liệu
             )
                 
         # Thực thi tìm kiếm RAG song song

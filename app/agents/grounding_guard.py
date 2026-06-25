@@ -12,7 +12,7 @@ async def run_grounding_guard(state: Dict[str, Any]) -> Dict[str, Any]:
     intent = state.get("intent", "FAQ_GENERAL")
     
     # 1. Transaction-related intents that rely on mock tools and BOT_IDENTITY are grounded in the response template / tool results
-    transaction_intents = ["BALANCE_INQUIRY", "TRANSACTION_STATUS", "FEE_INQUIRY", "TRANSACTION_HISTORY", "BOT_IDENTITY"]
+    transaction_intents = ["BALANCE_INQUIRY", "TRANSACTION_STATUS", "FEE_INQUIRY", "TRANSACTION_HISTORY", "SPENDING_STATISTICS", "BOT_IDENTITY"]
     if intent in transaction_intents:
         return {
             "grounded": True

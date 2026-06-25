@@ -41,7 +41,7 @@ async def run_confidence_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     # Default to intent_confidence
     overall_confidence = intent_confidence
     
-    if intent in ["BALANCE_INQUIRY", "TRANSACTION_STATUS", "FEE_INQUIRY", "TRANSACTION_HISTORY", "BOT_IDENTITY"]:
+    if intent in ["BALANCE_INQUIRY", "TRANSACTION_STATUS", "FEE_INQUIRY", "TRANSACTION_HISTORY", "SPENDING_STATISTICS", "BOT_IDENTITY"]:
         # High confidence since it is sourced directly from mock systems or templates
         overall_confidence = 0.95
     elif not grounded:
