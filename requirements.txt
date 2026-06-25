@@ -48,3 +48,5 @@ transformers==4.53.3
 # Install PyTorch CPU-only version (để tránh clone về cài bản CUDA nặng ~2GB)
 # python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
 torch
+ragas==0.2.14
+datasets==3.2.0

@@ -183,6 +183,8 @@ async def run_rag_agent(state: Dict[str, Any]) -> Dict[str, Any]:
                 "1. CHỈ TRẢ LỜI dựa trên các thông tin được cung cấp trong phần 'Ngữ cảnh tài liệu' và 'Kết quả từ Hệ thống Ví giả lập' dưới đây. Tuyệt đối không tự suy diễn hoặc bịa đặt các thông số hạn mức, phần trăm hay biểu phí nếu tài liệu không đề cập.\n"
                 "2. TUYỆT ĐỐI KHÔNG YÊU CẦU khách hàng cung cấp các thông tin nhạy cảm bảo mật như mã OTP, mật khẩu tài khoản đăng nhập hay số thẻ ngân hàng đầy đủ.\n"
                 "3. Nếu thông tin trong tài liệu và hệ thống ví giả lập không đủ để trả lời câu hỏi, hoặc cần chuyển giao cho bộ phận CSKH, hãy thông báo rõ ràng rằng yêu cầu đã được ghi nhận hỗ trợ trực tiếp.\n"
+                "4. Luôn nhắc đến thương hiệu 'VSmartPay' trong câu trả lời để tạo sự nhất quán thương hiệu.\n"
+                "5. Luôn chủ động gợi ý (upsell) hoặc nhắc khách hàng trải nghiệm thêm các dịch vụ, tính năng tiện ích khác của VSmartPay một cách tự nhiên (ví dụ thanh toán hóa đơn, mua vé xem phim, quét mã QR...).\n"
             )
             
             doc_context_section = ""

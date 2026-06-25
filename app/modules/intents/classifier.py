@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from app.config import settings
@@ -86,8 +87,13 @@ class IntentClassifier:
         if api_key and api_key != "your_openai_api_key_here":
             try:
                 from openai import AsyncOpenAI
-                from langsmith.wrappers import wrap_openai
-                client = wrap_openai(AsyncOpenAI(api_key=api_key))
+                client = AsyncOpenAI(api_key=api_key)
+                if not os.getenv("EVAL_MODE"):
+                    try:
+                        from langsmith.wrappers import wrap_openai
+                        client = wrap_openai(client)
+                    except:
+                        pass
                 
                 # List of valid intents for prompt instruction
                 intents_list = [enum.value for enum in IntentTaxonomy]
